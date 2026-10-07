@@ -180,7 +180,7 @@ export default function Summary({
                     }}
                   />
                   <span className={`text-[11px] capitalize font-medium ${sel ? "text-white" : "text-white/40"}`}>
-                    {m.label.split(" ")[0].slice(0, 3)}
+                    {(m.label || "").split(" ")[0]?.slice(0, 3) || ""}
                   </span>
                 </button>
               );
