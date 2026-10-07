@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+html, body {
+  background-color: #0b0b1f;
+  color: #f2f2fa;
+  min-height: 100%;
+}
+
+input, select, textarea {
+  color-scheme: dark;
+}
