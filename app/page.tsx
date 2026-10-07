@@ -267,23 +267,6 @@ export default function Home() {
   const activeMonth = remMonth ?? (remMonths[0] ?? null);
   const monthReminders = reminders.filter((r) => activeMonth !== null && monthKey(r.mes) === monthKey(activeMonth));
 
-  if (!authed) {
-    return (
-      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 text-white">
-        <h1 className="text-4xl font-bold tracking-tight text-white">Finanzas</h1>
-        <p className="mt-1 text-sm text-white/70">Tu hoja de 2026, desde el celular</p>
-        <form onSubmit={login} className="mt-8 space-y-4 rounded-3xl border border-white/10 bg-[#16162a] p-6 shadow-2xl">
-          <label className="block">
-            <span className={lbl}>Contraseña de acceso</span>
-            <input type="password" placeholder="••••••••" className={field} value={pass} onChange={(e) => setPass(e.target.value)} />
-          </label>
-          <button className={primary}>Entrar a la App</button>
-          {msg && <p className="text-sm font-medium text-rose-400">{msg}</p>}
-        </form>
-      </main>
-    );
-  }
-
   const handleNavigateToList = useCallback(
     (filters: { monthKey?: number; concept?: "Ingresos" | "Gastos"; method?: string }) => {
       if (filters.monthKey !== undefined) setFilterMonth(filters.monthKey);
@@ -340,6 +323,23 @@ export default function Home() {
       })
       .reverse();
   }, [data.rows, filterMonth, filterConcept, filterMethod, search]);
+
+  if (!authed) {
+    return (
+      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 text-white">
+        <h1 className="text-4xl font-bold tracking-tight text-white">Finanzas</h1>
+        <p className="mt-1 text-sm text-white/70">Tu hoja de 2026, desde el celular</p>
+        <form onSubmit={login} className="mt-8 space-y-4 rounded-3xl border border-white/10 bg-[#16162a] p-6 shadow-2xl">
+          <label className="block">
+            <span className={lbl}>Contraseña de acceso</span>
+            <input type="password" placeholder="••••••••" className={field} value={pass} onChange={(e) => setPass(e.target.value)} />
+          </label>
+          <button className={primary}>Entrar a la App</button>
+          {msg && <p className="text-sm font-medium text-rose-400">{msg}</p>}
+        </form>
+      </main>
+    );
+  }
 
   const go = (t: Tab) => {
     setTab(t); setMsg(""); setPaying(null);
