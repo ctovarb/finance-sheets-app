@@ -41,7 +41,17 @@ const heroStyle = {
     "radial-gradient(120% 90% at 100% 20%, rgba(240, 118, 74, 0.85) 0%, rgba(217, 85, 143, 0.45) 35%, transparent 70%), radial-gradient(120% 100% at 0% 0%, #6a3fc0 0%, rgba(80, 52, 160, 0.7) 45%, transparent 80%), linear-gradient(180deg, #2a1d6b 0%, #0b0b1f 100%)",
 };
 
-export default function Summary({ txs, pending }: { txs: Tx[]; pending: PendingReminder[] }) {
+export default function Summary({
+  txs,
+  pending,
+  onNavigateToList,
+  onNavigateToReminders,
+}: {
+  txs: Tx[];
+  pending: PendingReminder[];
+  onNavigateToList: (filters: { monthKey?: number; concept?: "Ingresos" | "Gastos"; method?: string }) => void;
+  onNavigateToReminders: (monthKey?: number) => void;
+}) {
   const months = useMemo(
     () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => a - b),
     [txs]
@@ -106,22 +116,37 @@ export default function Summary({ txs, pending }: { txs: Tx[]; pending: PendingR
         <p className="mt-4 text-xs font-medium uppercase tracking-wider text-white/70">Balance del mes</p>
         <p className="mt-1 text-4xl font-bold tracking-tight text-white">{cop(net)}</p>
 
-        {/* Tarjetas de Ingresos y Gastos translúcidas */}
+        {/* Tarjetas clickeables de Ingresos y Gastos translúcidas */}
         <div className="mt-6 grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-md">
-            <div className="flex items-center gap-1.5 text-xs text-white/70">
-              <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
-              Ingresos
+          <button
+            type="button"
+            onClick={() => active !== null && onNavigateToList({ monthKey: active, concept: "Ingresos" })}
+            className="group rounded-2xl border border-white/15 bg-white/10 p-3.5 text-left backdrop-blur-md transition-all hover:bg-white/15 active:scale-[0.98]"
+          >
+            <div className="flex items-center justify-between text-xs text-white/70">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                Ingresos
+              </div>
+              <span className="text-[10px] text-white/40 group-hover:text-white/90">Ver ↗</span>
             </div>
             <p className="mt-1 text-base font-bold text-emerald-400">{cop(cur?.ingresos ?? 0)}</p>
-          </div>
-          <div className="rounded-2xl border border-white/15 bg-white/10 p-3.5 backdrop-blur-md">
-            <div className="flex items-center gap-1.5 text-xs text-white/70">
-              <span className="inline-block h-2 w-2 rounded-full bg-rose-400" />
-              Gastos
+          </button>
+
+          <button
+            type="button"
+            onClick={() => active !== null && onNavigateToList({ monthKey: active, concept: "Gastos" })}
+            className="group rounded-2xl border border-white/15 bg-white/10 p-3.5 text-left backdrop-blur-md transition-all hover:bg-white/15 active:scale-[0.98]"
+          >
+            <div className="flex items-center justify-between text-xs text-white/70">
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block h-2 w-2 rounded-full bg-rose-400" />
+                Gastos
+              </div>
+              <span className="text-[10px] text-white/40 group-hover:text-white/90">Ver ↗</span>
             </div>
             <p className="mt-1 text-base font-bold text-rose-400">{cop(totalG)}</p>
-          </div>
+          </button>
         </div>
       </section>
 
@@ -162,6 +187,63 @@ export default function Summary({ txs, pending }: { txs: Tx[]; pending: PendingR
             })}
           </div>
         </section>
+
+        {/* Medio de pago y Recordatorios (Reordenado aquí, justo después de Gastos por mes) */}
+        <div className="grid grid-cols-2 gap-3">
+          <section className="relative rounded-3xl border border-white/10 bg-[#16162a] p-4 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/70">Medio de pago</h3>
+              <span className="text-[10px] text-white/40">Filtro ↗</span>
+            </div>
+
+            <div className="mt-2.5 flex h-2 overflow-hidden rounded-full bg-white/10">
+              <div style={{ width: `${totalG ? (account / totalG) * 100 : 0}%`, background: "#9b6ad8" }} />
+              <div style={{ width: `${totalG ? (card / totalG) * 100 : 0}%`, background: "#f0764a" }} />
+            </div>
+
+            <div className="mt-3 space-y-1">
+              <button
+                type="button"
+                onClick={() => active !== null && onNavigateToList({ monthKey: active, method: "Cuenta Corriente/Ahorros" })}
+                className="flex w-full items-center justify-between rounded-xl p-1.5 text-xs text-white/80 transition-all hover:bg-white/5 active:scale-95"
+              >
+                <span className="flex items-center gap-1.5 truncate">
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-[#9b6ad8]" />
+                  Cuenta
+                </span>
+                <span className="font-semibold text-white">{short(account)}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => active !== null && onNavigateToList({ monthKey: active, method: "Tarjeta de Crédito" })}
+                className="flex w-full items-center justify-between rounded-xl p-1.5 text-xs text-white/80 transition-all hover:bg-white/5 active:scale-95"
+              >
+                <span className="flex items-center gap-1.5 truncate">
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-[#f0764a]" />
+                  Tarjeta
+                </span>
+                <span className="font-semibold text-white">{short(card)}</span>
+              </button>
+            </div>
+          </section>
+
+          <button
+            type="button"
+            onClick={() => onNavigateToReminders(active ?? undefined)}
+            className="group relative rounded-3xl border border-white/10 bg-[#16162a] p-4 text-left shadow-xl transition-all hover:border-[#f0764a]/40 hover:bg-[#1c1c34] active:scale-[0.98]"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white/70">Por pagar</h3>
+              <span className="text-[10px] text-white/40 group-hover:text-[#f0764a]">Ir ↗</span>
+            </div>
+            <p className="mt-2 text-3xl font-bold text-[#f0764a]">{pend.length}</p>
+            <p className="text-xs text-white/50">{short(pendTotal)} estimados</p>
+            <span className="mt-3 inline-block text-[11px] font-medium text-[#f0764a]/90 group-hover:text-[#f0764a]">
+              Ver Recordatorios →
+            </span>
+          </button>
+        </div>
 
         {/* Por categoría (Gráfico circular dona + lista) */}
         <section className="relative rounded-3xl border border-white/10 bg-[#16162a] p-5 shadow-xl">
@@ -232,31 +314,6 @@ export default function Summary({ txs, pending }: { txs: Tx[]; pending: PendingR
             {topTx.length === 0 && <li className="py-2 text-sm text-white/50">Sin gastos este mes.</li>}
           </ul>
         </section>
-
-        {/* Medio de pago y Recordatorios */}
-        <div className="grid grid-cols-2 gap-3">
-          <section className="relative rounded-3xl border border-white/10 bg-[#16162a] p-4 shadow-xl">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/70">Medio de pago</h3>
-            <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/10">
-              <div style={{ width: `${totalG ? (account / totalG) * 100 : 0}%`, background: "#9b6ad8" }} />
-              <div style={{ width: `${totalG ? (card / totalG) * 100 : 0}%`, background: "#f0764a" }} />
-            </div>
-            <p className="mt-3 text-xs text-white/80">
-              <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#9b6ad8]" />
-              Cuenta: <span className="font-semibold text-white">{short(account)}</span>
-            </p>
-            <p className="mt-1 text-xs text-white/80">
-              <span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#f0764a]" />
-              Tarjeta: <span className="font-semibold text-white">{short(card)}</span>
-            </p>
-          </section>
-
-          <section className="relative rounded-3xl border border-white/10 bg-[#16162a] p-4 shadow-xl">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-white/70">Por pagar</h3>
-            <p className="mt-2 text-3xl font-bold text-[#f0764a]">{pend.length}</p>
-            <p className="text-xs text-white/50">{short(pendTotal)} estimados</p>
-          </section>
-        </div>
       </div>
     </div>
   );

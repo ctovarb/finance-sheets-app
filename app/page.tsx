@@ -112,6 +112,9 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [search, setSearch] = useState("");
+  const [filterMonth, setFilterMonth] = useState<number | "all">("all");
+  const [filterConcept, setFilterConcept] = useState<"all" | "Ingresos" | "Gastos">("all");
+  const [filterMethod, setFilterMethod] = useState<"all" | string>("all");
   const [remMonth, setRemMonth] = useState<number | null>(null);
   const [paying, setPaying] = useState<{ row: number; amount: string; method: string } | null>(null);
 
@@ -281,9 +284,62 @@ export default function Home() {
     );
   }
 
-  const filtered = data.rows
-    .filter((r) => [...r.values.slice(0, 1), monthName(r.values[MONTH]), ...r.values.slice(2)].join(" ").toLowerCase().includes(search.toLowerCase()))
-    .reverse();
+  const handleNavigateToList = useCallback(
+    (filters: { monthKey?: number; concept?: "Ingresos" | "Gastos"; method?: string }) => {
+      if (filters.monthKey !== undefined) setFilterMonth(filters.monthKey);
+      else setFilterMonth("all");
+
+      if (filters.concept !== undefined) setFilterConcept(filters.concept);
+      else setFilterConcept("all");
+
+      if (filters.method !== undefined) setFilterMethod(filters.method);
+      else setFilterMethod("all");
+
+      setSearch("");
+      setTab("list");
+    },
+    []
+  );
+
+  const handleNavigateToReminders = useCallback(
+    (targetMonthKey?: number) => {
+      if (targetMonthKey !== undefined) {
+        const match = remMonths.find((m) => monthKey(m) === targetMonthKey);
+        if (match !== undefined) setRemMonth(match);
+      }
+      setTab("rem");
+    },
+    [remMonths]
+  );
+
+  const availableMonths = useMemo(
+    () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => b - a),
+    [txs]
+  );
+
+  const filtered = useMemo(() => {
+    return data.rows
+      .filter((r) => {
+        if (filterMonth !== "all") {
+          if (typeof r.values[MONTH] !== "number") return false;
+          if (monthKey(r.values[MONTH] as number) !== filterMonth) return false;
+        }
+        if (filterConcept !== "all") {
+          if (String(r.values[CONCEPT]) !== filterConcept) return false;
+        }
+        if (filterMethod !== "all") {
+          if (String(r.values[METHOD]) !== filterMethod) return false;
+        }
+        if (search.trim()) {
+          const text = [...r.values.slice(0, 1), monthName(r.values[MONTH]), ...r.values.slice(2)]
+            .join(" ")
+            .toLowerCase();
+          if (!text.includes(search.toLowerCase().trim())) return false;
+        }
+        return true;
+      })
+      .reverse();
+  }, [data.rows, filterMonth, filterConcept, filterMethod, search]);
 
   const go = (t: Tab) => {
     setTab(t); setMsg(""); setPaying(null);
@@ -296,7 +352,14 @@ export default function Home() {
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md bg-[#0b0b1f] pb-32 text-white">
-      {tab === "home" && <Summary txs={txs} pending={pending} />}
+      {tab === "home" && (
+        <Summary
+          txs={txs}
+          pending={pending}
+          onNavigateToList={handleNavigateToList}
+          onNavigateToReminders={handleNavigateToReminders}
+        />
+      )}
 
       {tab === "add" && (
         <>
@@ -389,10 +452,116 @@ export default function Home() {
 
       {tab === "list" && (
         <>
-          <Header title="Movimientos" sub={`${data.rows.length} registros en la hoja 2026`} />
+          <Header
+            title="Movimientos"
+            sub={`${filtered.length} de ${data.rows.length} registros`}
+          />
           <div className="mt-6 space-y-3 px-4">
-            <input className={field} placeholder="Buscar por nombre, mes o categoría..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            
+            {/* Buscador y selector de mes */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  className={`${field} pl-10 pr-9`}
+                  placeholder="Buscar movimientos..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                <svg
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/50 hover:text-white"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Selector de mes compacto */}
+              <div className="relative shrink-0">
+                <select
+                  value={filterMonth === "all" ? "all" : String(filterMonth)}
+                  onChange={(e) => setFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
+                  className="h-full rounded-2xl border border-white/10 bg-[#1f1f38] px-3.5 text-xs font-semibold capitalize text-white outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8]"
+                >
+                  <option value="all" className="bg-[#1f1f38]">
+                    Todos los meses
+                  </option>
+                  {availableMonths.map(([k, label]) => (
+                    <option key={k} value={k} className="bg-[#1f1f38] capitalize">
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Chips de filtros activos */}
+            {(filterMonth !== "all" || filterConcept !== "all" || filterMethod !== "all") && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                <span className="text-[11px] font-medium text-white/40 mr-1">Filtros:</span>
+                {filterMonth !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterMonth("all")}
+                    className="flex items-center gap-1 rounded-full border border-[#9b6ad8]/40 bg-[#7c4dbc]/30 px-2.5 py-1 text-xs font-medium capitalize text-white hover:bg-[#7c4dbc]/50"
+                  >
+                    <span>{availableMonths.find(([k]) => k === filterMonth)?.[1] ?? "Mes"}</span>
+                    <span className="text-white/60">✕</span>
+                  </button>
+                )}
+                {filterConcept !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterConcept("all")}
+                    className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
+                      filterConcept === "Gastos"
+                        ? "border-rose-500/40 bg-rose-500/20 text-rose-300"
+                        : "border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
+                    }`}
+                  >
+                    <span>{filterConcept}</span>
+                    <span className="opacity-70">✕</span>
+                  </button>
+                )}
+                {filterMethod !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterMethod("all")}
+                    className="flex items-center gap-1 rounded-full border border-[#f0764a]/40 bg-[#f0764a]/20 px-2.5 py-1 text-xs font-medium text-[#f0764a]"
+                  >
+                    <span>{filterMethod.includes("Tarjeta") ? "Tarjeta" : "Cuenta"}</span>
+                    <span className="opacity-70">✕</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterMonth("all");
+                    setFilterConcept("all");
+                    setFilterMethod("all");
+                  }}
+                  className="ml-auto text-xs text-white/40 underline hover:text-white"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+            )}
+
             <div className="space-y-2.5 pt-2">
               {filtered.map((r) => {
                 const v = r.values[VALUE];
@@ -428,7 +597,12 @@ export default function Home() {
                   </div>
                 );
               })}
-              {filtered.length === 0 && <p className="text-center py-8 text-white/40">Sin resultados coincidentes</p>}
+              {filtered.length === 0 && (
+                <div className="py-12 text-center text-white/40">
+                  <p className="text-base font-semibold">Sin resultados coincidentes</p>
+                  <p className="mt-1 text-xs">Prueba cambiando el mes o quitando los filtros</p>
+                </div>
+              )}
             </div>
           </div>
         </>
