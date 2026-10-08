@@ -103,6 +103,7 @@ function Header({ title, sub }: { title: string; sub?: string }) {
 export default function Home() {
   const [pass, setPass] = useState("");
   const [authed, setAuthed] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [tab, setTab] = useState<Tab>("home");
   const [data, setData] = useState<Data>({ headers: [], rows: [] });
   const [params, setParams] = useState<Param[]>([]);
@@ -117,6 +118,14 @@ export default function Home() {
   const [filterMethod, setFilterMethod] = useState<"all" | string>("all");
   const [remMonth, setRemMonth] = useState<number | null>(null);
   const [paying, setPaying] = useState<{ row: number; amount: string; method: string } | null>(null);
+  const [descSearch, setDescSearch] = useState("");
+  const [descOpen, setDescOpen] = useState(false);
+  const [successModal, setSuccessModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    desc: string;
+    amount: string;
+  } | null>(null);
 
   const api = useCallback(
     async (url: string, init?: RequestInit, p = pass) => {
@@ -156,7 +165,15 @@ export default function Home() {
           setPass(saved);
           setAuthed(true);
         })
-        .catch(() => localStorage.removeItem("pw"));
+        .catch(() => {
+          localStorage.removeItem("pw");
+          setAuthed(false);
+        })
+        .finally(() => {
+          setCheckingAuth(false);
+        });
+    } else {
+      setCheckingAuth(false);
     }
   }, [boot]);
 
@@ -180,6 +197,12 @@ export default function Home() {
     return [...g.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [params]);
 
+  const filteredDescs = useMemo(() => {
+    if (!descSearch.trim()) return params;
+    const q = descSearch.toLowerCase().trim();
+    return params.filter((p) => p.desc.toLowerCase().includes(q) || p.sub.toLowerCase().includes(q));
+  }, [params, descSearch]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.desc || !subOf.has(form.desc)) return setMsg("❌ Elige una descripción de la lista");
@@ -191,11 +214,20 @@ export default function Home() {
       if (editing !== null) await api(`/api/rows/${editing}`, { method: "PUT", body });
       else await api("/api/rows", { method: "POST", body });
       const wasEditing = editing !== null;
-      setMsg(wasEditing ? "✅ Registro actualizado" : "✅ Registro guardado");
+      const savedAmount = money(toValue(form));
+      const savedDetail = String(form.detail).trim();
+      const savedLabel = savedDetail ? `${form.desc} · ${savedDetail}` : form.desc;
       setEditing(null);
       setForm({ ...emptyForm(), month: form.month, method: form.method });
+      setDescSearch("");
+      setDescOpen(false);
+      setSuccessModal({
+        isOpen: true,
+        title: wasEditing ? "¡Registro actualizado!" : "¡Registro guardado con éxito!",
+        desc: `${savedLabel} (${form.month} ${form.year})`,
+        amount: savedAmount,
+      });
       await load();
-      if (wasEditing) setTab("list");
     } catch (err) {
       setMsg("❌ " + (err as Error).message);
     } finally {
@@ -324,6 +356,25 @@ export default function Home() {
       .reverse();
   }, [data.rows, filterMonth, filterConcept, filterMethod, search]);
 
+  if (checkingAuth) {
+    return (
+      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-6 text-center text-white">
+        <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-tr from-[#7c4dbc] via-[#9b6ad8] to-[#f0764a] p-1 shadow-2xl shadow-[#7c4dbc]/50 animate-pulse">
+          <div className="flex h-full w-full items-center justify-center rounded-[22px] bg-[#16162a]/90 backdrop-blur-sm">
+            <span className="text-4xl font-extrabold tracking-tight text-white">$</span>
+          </div>
+        </div>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-white">Finanzas</h1>
+        <p className="mt-1.5 text-sm text-white/60">Verificando acceso y cargando datos...</p>
+        <div className="mt-8 flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full bg-[#f0764a] animate-bounce [animation-delay:-0.3s]" />
+          <div className="h-2 w-2 rounded-full bg-[#9b6ad8] animate-bounce [animation-delay:-0.15s]" />
+          <div className="h-2 w-2 rounded-full bg-[#4fd1c5] animate-bounce" />
+        </div>
+      </main>
+    );
+  }
+
   if (!authed) {
     return (
       <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 text-white">
@@ -345,7 +396,7 @@ export default function Home() {
     setTab(t); setMsg(""); setPaying(null);
     if (t === "list" || t === "home") load();
     if (t === "rem" || t === "home") loadReminders();
-    if (t === "add") { setEditing(null); setForm(emptyForm()); }
+    if (t === "add") { setEditing(null); setForm(emptyForm()); setDescSearch(""); setDescOpen(false); }
   };
 
   const nav: [Tab, string][] = [["home", "Resumen"], ["add", "Agregar"], ["list", "Consultar"], ["rem", "Recordatorios"]];
@@ -390,22 +441,99 @@ export default function Home() {
               <input inputMode="numeric" className={`${field} text-2xl font-bold`} placeholder="0" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
             </label>
 
-            <label className="block">
+            {/* Buscador de descripción */}
+            <div className="space-y-1">
               <span className={lbl}>Descripción</span>
-              <select className={field} value={form.desc} onChange={(e) => set("desc", e.target.value)}>
-                <option value="" className="bg-[#1a1a2e]">Selecciona una descripción...</option>
-                {groups.map(([sub, descs]) => (
-                  <optgroup key={sub} label={sub} className="bg-[#1a1a2e] text-white">
-                    {descs.map((d) => <option key={d} value={d} className="bg-[#1f1f38]">{d}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
+              {form.desc && !descOpen ? (
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#1f1f38] px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-semibold text-white">{form.desc}</span>
+                    <span className="block truncate text-xs text-white/50">{subOf.get(form.desc) || "Categoría"}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDescOpen(true);
+                      setDescSearch("");
+                    }}
+                    className="ml-3 shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#9b6ad8] hover:bg-white/20 active:scale-95 transition-all"
+                  >
+                    Cambiar ✎
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      autoFocus={descOpen}
+                      placeholder="Buscar descripción (ej. Mercado, Gasolina)..."
+                      className={`${field} pl-10 pr-9`}
+                      value={descSearch}
+                      onChange={(e) => {
+                        setDescSearch(e.target.value);
+                        setDescOpen(true);
+                      }}
+                      onFocus={() => setDescOpen(true)}
+                    />
+                    <svg
+                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    {(descSearch || descOpen) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDescSearch("");
+                          if (form.desc) setDescOpen(false);
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/50 hover:text-white"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
 
-            <label className="block">
-              <span className={lbl}>Subconcepto (automático)</span>
-              <input readOnly disabled className={`${field} text-white/50 bg-[#17172b] cursor-not-allowed`} value={subOf.get(form.desc) ?? ""} />
-            </label>
+                  {/* Lista desplegable filtrada */}
+                  {descOpen && (
+                    <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-[#16162a] p-1.5 shadow-2xl space-y-1 z-30">
+                      {filteredDescs.map((p) => (
+                        <button
+                          type="button"
+                          key={p.desc}
+                          onClick={() => {
+                            set("desc", p.desc);
+                            setDescOpen(false);
+                            setDescSearch("");
+                          }}
+                          className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-all flex items-center justify-between ${
+                            form.desc === p.desc
+                              ? "bg-[#7c4dbc] text-white font-semibold"
+                              : "text-white/80 hover:bg-white/10"
+                          }`}
+                        >
+                          <span className="truncate">{p.desc}</span>
+                          <span className="text-[11px] text-white/40 truncate ml-2 shrink-0">{p.sub}</span>
+                        </button>
+                      ))}
+                      {filteredDescs.length === 0 && (
+                        <p className="py-4 text-center text-xs text-white/40">No hay descripciones coincidentes</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
 
             <label className="block">
               <span className={lbl}>Detalles</span>
@@ -571,17 +699,24 @@ export default function Home() {
                       onClick={() => { setEditing(r.row); setForm(fromRow(r.values)); setTab("add"); setMsg(""); }}
                       className="relative flex min-w-0 flex-1 items-center gap-3.5 rounded-2xl border border-white/10 bg-[#16162a] p-3.5 text-left shadow-lg active:scale-[0.99] transition-all"
                     >
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#22223f] text-sm font-bold text-white shadow-inner">
-                        {String(r.values[DESC]).charAt(0)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-white">
-                          {String(r.values[DESC])}{String(r.values[DETAIL]).trim() && ` · ${String(r.values[DETAIL]).trim()}`}
-                        </span>
-                        <span className="block truncate text-xs text-white/50">
-                          {monthName(r.values[MONTH])} · {String(r.values[SUB])} · {String(r.values[METHOD])}
-                        </span>
-                      </span>
+                      {(() => {
+                        const detailText = String(r.values[DETAIL]).trim() || String(r.values[DESC]);
+                        return (
+                          <>
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#22223f] text-sm font-bold uppercase text-white shadow-inner">
+                              {detailText.charAt(0)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-white">
+                                {detailText}
+                              </span>
+                              <span className="block truncate text-xs text-white/50">
+                                {monthName(r.values[MONTH])} · {String(r.values[METHOD])}
+                              </span>
+                            </span>
+                          </>
+                        );
+                      })()}
                       <span className={`text-sm font-bold ${Number(v) < 0 ? "text-rose-400" : "text-emerald-400"}`}>
                         {money(v)}
                       </span>
@@ -679,6 +814,32 @@ export default function Home() {
           </button>
         ))}
       </nav>
+
+      {/* Pop-up modal de confirmación al guardar registro */}
+      {successModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-md">
+          <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-[#16162a] p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/20 text-3xl text-emerald-400">
+              ✓
+            </div>
+            <h3 className="mt-4 text-xl font-bold tracking-tight text-white">{successModal.title}</h3>
+            <p className="mt-1.5 text-sm text-white/60">{successModal.desc}</p>
+            <div className="my-4 rounded-2xl border border-white/5 bg-[#1f1f38] py-3 text-2xl font-bold text-white shadow-inner">
+              {successModal.amount}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSuccessModal(null);
+                setTab("home");
+              }}
+              className="w-full rounded-2xl bg-gradient-to-r from-[#7c4dbc] to-[#9b6ad8] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#7c4dbc]/30 active:scale-[0.98] transition-all"
+            >
+              Aceptar y volver al Resumen
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
