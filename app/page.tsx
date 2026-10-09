@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CONCEPTS, DONE, MONTHS, PAYMENT_METHODS, monthSerial, serialDate } from "@/lib/categories";
 import Summary, { type PendingReminder, type Tx } from "@/components/Summary";
+import CreditCardView from "@/components/CreditCard";
 
 type Cell = string | number;
 type Row = { row: number; values: Cell[] };
@@ -65,10 +66,11 @@ function fromRow(v: Cell[]): Form {
   };
 }
 
-type Tab = "home" | "add" | "list" | "rem";
+type Tab = "home" | "card" | "add" | "list" | "rem";
 
 const ICONS: Record<Tab, string> = {
   home: "M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10",
+  card: "M3 5h18a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V7a2 2 0 012-2zm-1 5h22",
   add: "M12 5v14M5 12h14",
   list: "M4 6h16M4 12h16M4 18h10",
   rem: "M12 3a6 6 0 00-6 6v4l-2 3h16l-2-3V9a6 6 0 00-6-6zM10 20a2 2 0 004 0",
@@ -117,6 +119,7 @@ export default function Home() {
   const [filterConcept, setFilterConcept] = useState<"all" | "Ingresos" | "Gastos">("all");
   const [filterMethod, setFilterMethod] = useState<"all" | string>("all");
   const [remMonth, setRemMonth] = useState<number | null>(null);
+  const [cardMonth, setCardMonth] = useState<number | "all">("all");
   const [paying, setPaying] = useState<{ row: number; amount: string; method: string } | null>(null);
   const [descSearch, setDescSearch] = useState("");
   const [descOpen, setDescOpen] = useState(false);
@@ -327,6 +330,44 @@ export default function Home() {
     [remMonths]
   );
 
+  const handleNavigateToCard = useCallback((targetMonthKey?: number) => {
+    if (targetMonthKey !== undefined) setCardMonth(targetMonthKey);
+    setTab("card");
+  }, []);
+
+  const handleAddCardPayment = useCallback(() => {
+    setEditing(null);
+    setForm({
+      ...emptyForm(),
+      concept: "Gastos",
+      desc: "Pago Tarjeta de Crédito",
+      method: "Cuenta Corriente/Ahorros",
+    });
+    setDescSearch("Pago Tarjeta de Crédito");
+    setDescOpen(false);
+    setTab("add");
+  }, []);
+
+  const handleAddCardExpense = useCallback(() => {
+    setEditing(null);
+    setForm({
+      ...emptyForm(),
+      concept: "Gastos",
+      method: "Tarjeta de Crédito",
+    });
+    setDescSearch("");
+    setDescOpen(false);
+    setTab("add");
+  }, []);
+
+  const handleEditRowFromCard = useCallback((r: Row) => {
+    setEditing(r.row);
+    setForm(fromRow(r.values));
+    setDescSearch("");
+    setDescOpen(false);
+    setTab("add");
+  }, []);
+
   const availableMonths = useMemo(
     () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => b - a),
     [txs]
@@ -394,12 +435,18 @@ export default function Home() {
 
   const go = (t: Tab) => {
     setTab(t); setMsg(""); setPaying(null);
-    if (t === "list" || t === "home") load();
+    if (t === "list" || t === "home" || t === "card") load();
     if (t === "rem" || t === "home") loadReminders();
     if (t === "add") { setEditing(null); setForm(emptyForm()); setDescSearch(""); setDescOpen(false); }
   };
 
-  const nav: [Tab, string][] = [["home", "Resumen"], ["add", "Agregar"], ["list", "Consultar"], ["rem", "Recordatorios"]];
+  const nav: [Tab, string][] = [
+    ["home", "Resumen"],
+    ["card", "Tarjeta"],
+    ["add", "Agregar"],
+    ["list", "Consultar"],
+    ["rem", "Recordatorios"],
+  ];
 
   return (
     <main className="mx-auto min-h-screen w-full max-w-md bg-[#0b0b1f] pb-32 text-white">
@@ -409,6 +456,19 @@ export default function Home() {
           pending={pending}
           onNavigateToList={handleNavigateToList}
           onNavigateToReminders={handleNavigateToReminders}
+          onNavigateToCard={handleNavigateToCard}
+        />
+      )}
+
+      {tab === "card" && (
+        <CreditCardView
+          rows={data.rows}
+          txs={txs}
+          activeMonth={cardMonth}
+          onSelectMonth={setCardMonth}
+          onAddPayment={handleAddCardPayment}
+          onAddExpense={handleAddCardExpense}
+          onEditRow={handleEditRowFromCard}
         />
       )}
 

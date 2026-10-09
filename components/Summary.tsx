@@ -46,11 +46,13 @@ export default function Summary({
   pending,
   onNavigateToList,
   onNavigateToReminders,
+  onNavigateToCard,
 }: {
   txs: Tx[];
   pending: PendingReminder[];
   onNavigateToList: (filters: { monthKey?: number; concept?: "Ingresos" | "Gastos"; method?: string }) => void;
   onNavigateToReminders: (monthKey?: number) => void;
+  onNavigateToCard?: (monthKey?: number) => void;
 }) {
   const months = useMemo(
     () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => a - b),
@@ -216,7 +218,10 @@ export default function Summary({
 
               <button
                 type="button"
-                onClick={() => active !== null && onNavigateToList({ monthKey: active, method: "Tarjeta de Crédito" })}
+                onClick={() => {
+                  if (onNavigateToCard) onNavigateToCard(active ?? undefined);
+                  else if (active !== null) onNavigateToList({ monthKey: active, method: "Tarjeta de Crédito" });
+                }}
                 className="flex w-full items-center justify-between rounded-xl p-1.5 text-xs text-white/80 transition-all hover:bg-white/5 active:scale-95"
               >
                 <span className="flex items-center gap-1.5 truncate">
