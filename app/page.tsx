@@ -22,9 +22,9 @@ type Form = {
   detail: string; amount: string; done: boolean; method: string;
 };
 
-const emptyForm = (): Form => ({
-  year: "2026",
-  month: "octubre",
+const emptyForm = (defaultMonth?: string, defaultYear?: string): Form => ({
+  year: defaultYear || "2026",
+  month: defaultMonth || "octubre",
   concept: "Gastos", desc: "", detail: "", amount: "",
   done: true, method: PAYMENT_METHODS[0],
 });
@@ -161,6 +161,17 @@ export default function Home() {
   }, [load, loadParams, loadReminders]);
 
   useEffect(() => {
+    const now = new Date();
+    const curMonth = MONTHS[now.getMonth()];
+    const curYear = String(now.getFullYear());
+    if (curMonth) {
+      setForm((f) => ({
+        ...f,
+        month: f.desc ? f.month : curMonth,
+        year: f.desc ? f.year : curYear,
+      }));
+    }
+
     const saved = localStorage.getItem("pw");
     if (saved) {
       boot(saved)
@@ -335,30 +346,45 @@ export default function Home() {
     setTab("card");
   }, []);
 
+  const availableMonths = useMemo(
+    () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => b - a),
+    [txs]
+  );
+
   const handleAddCardPayment = useCallback(() => {
     setEditing(null);
+    const targetKey = cardMonth !== "all" ? cardMonth : (availableMonths[0]?.[0] ?? null);
+    const m = targetKey !== null ? MONTHS[targetKey % 12] : form.month;
+    const y = targetKey !== null ? String(Math.floor(targetKey / 12)) : form.year;
     setForm({
-      ...emptyForm(),
+      ...emptyForm(m, y),
+      month: m,
+      year: y,
       concept: "Gastos",
       desc: "Pago Tarjeta de Crédito",
-      method: "Cuenta Corriente/Ahorros",
+      method: PAYMENT_METHODS[0],
     });
     setDescSearch("Pago Tarjeta de Crédito");
     setDescOpen(false);
     setTab("add");
-  }, []);
+  }, [cardMonth, availableMonths, form.month, form.year]);
 
   const handleAddCardExpense = useCallback(() => {
     setEditing(null);
+    const targetKey = cardMonth !== "all" ? cardMonth : (availableMonths[0]?.[0] ?? null);
+    const m = targetKey !== null ? MONTHS[targetKey % 12] : form.month;
+    const y = targetKey !== null ? String(Math.floor(targetKey / 12)) : form.year;
     setForm({
-      ...emptyForm(),
+      ...emptyForm(m, y),
+      month: m,
+      year: y,
       concept: "Gastos",
       method: "Tarjeta de Crédito",
     });
     setDescSearch("");
     setDescOpen(false);
     setTab("add");
-  }, []);
+  }, [cardMonth, availableMonths, form.month, form.year]);
 
   const handleEditRowFromCard = useCallback((r: Row) => {
     setEditing(r.row);
@@ -367,11 +393,6 @@ export default function Home() {
     setDescOpen(false);
     setTab("add");
   }, []);
-
-  const availableMonths = useMemo(
-    () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => b - a),
-    [txs]
-  );
 
   const filtered = useMemo(() => {
     return data.rows
@@ -437,7 +458,20 @@ export default function Home() {
     setTab(t); setMsg(""); setPaying(null);
     if (t === "list" || t === "home" || t === "card") load();
     if (t === "rem" || t === "home") loadReminders();
-    if (t === "add") { setEditing(null); setForm(emptyForm()); setDescSearch(""); setDescOpen(false); }
+    if (t === "add") {
+      setEditing(null);
+      const targetKey =
+        cardMonth !== "all"
+          ? cardMonth
+          : filterMonth !== "all"
+          ? filterMonth
+          : null;
+      const m = targetKey !== null ? MONTHS[targetKey % 12] : form.month;
+      const y = targetKey !== null ? String(Math.floor(targetKey / 12)) : form.year;
+      setForm({ ...emptyForm(m, y), month: m, year: y });
+      setDescSearch("");
+      setDescOpen(false);
+    }
   };
 
   const nav: [Tab, string][] = [
@@ -602,9 +636,9 @@ export default function Home() {
 
             <div className="flex gap-3">
               <label className="block flex-1">
-                <span className={lbl}>Mes</span>
+                <span className={lbl}>Mes al que aplica</span>
                 <select className={field} value={form.month} onChange={(e) => set("month", e.target.value)}>
-                  {MONTHS.map((m) => <option key={m} value={m} className="bg-[#1f1f38]">{m}</option>)}
+                  {MONTHS.map((m) => <option key={m} value={m} className="bg-[#1f1f38] capitalize">{m}</option>)}
                 </select>
               </label>
               <label className="block w-28">
@@ -837,6 +871,9 @@ export default function Home() {
                     </button>
                     {open && paying && (
                       <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+                        <div className="rounded-xl border border-white/10 bg-[#1f1f38]/80 px-3.5 py-2 text-xs text-white/70">
+                          Aplica para el mes de <strong className="text-white capitalize">{monthLabel(r.mes)}</strong>
+                        </div>
                         <label className="block">
                           <span className={lbl}>Valor pagado real</span>
                           <input inputMode="numeric" autoFocus className={field} value={paying.amount} onChange={(e) => setPaying({ ...paying, amount: e.target.value })} />

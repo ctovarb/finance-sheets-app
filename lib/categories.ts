@@ -4,7 +4,7 @@ export const MONTHS = [
 ];
 
 export const CONCEPTS = ["Gastos", "Ingresos"] as const;
-export const PAYMENT_METHODS = ["Cuenta Corriente/Ahorros", "Tarjeta de Crédito"];
+export const PAYMENT_METHODS = ["Tarjeta de Crédito", "Cuenta Corriente/Ahorros"];
 export const DONE = "✅";
 
 // Las fechas de Sheets son días desde 1899-12-30.
