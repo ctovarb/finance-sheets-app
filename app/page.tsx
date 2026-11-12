@@ -932,18 +932,19 @@ export default function Home() {
                       </div>
                       {(() => {
                         const dueInfo = getDueDateInfo(r.fecha, isPaid(r));
+                        const paid = isPaid(r);
                         return (
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/50">
                             <span className={dueInfo.className}>
                               Vence: {dueInfo.dateStr} {dueInfo.tag}
                             </span>
                             <span>·</span>
-                            <span>Estimado: {r.estimado ? money(Math.abs(r.estimado)) : "—"}</span>
-                            {isPaid(r) && r.pagado !== "" && (
-                              <>
-                                <span>·</span>
-                                <span className="font-medium text-emerald-400">Pagado: {money(r.pagado)}</span>
-                              </>
+                            {paid ? (
+                              <span className="font-medium text-emerald-400">
+                                Pagado: {r.pagado !== "" ? money(r.pagado) : r.estimado ? money(Math.abs(r.estimado)) : "—"}
+                              </span>
+                            ) : (
+                              <span>Estimado: {r.estimado ? money(Math.abs(r.estimado)) : "—"}</span>
                             )}
                           </div>
                         );
