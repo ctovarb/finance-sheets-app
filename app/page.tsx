@@ -66,6 +66,53 @@ function fromRow(v: Cell[]): Form {
   };
 }
 
+function getDueDateInfo(fechaSerial: number, paid: boolean) {
+  if (!fechaSerial) return { dateStr: "—", className: "text-white/40", tag: "" };
+  const d = serialDate(fechaSerial);
+  if (isNaN(d.getTime())) return { dateStr: "—", className: "text-white/40", tag: "" };
+  const dateStr = d.toISOString().slice(0, 10);
+
+  if (paid) {
+    return {
+      dateStr,
+      className: "line-through text-white/40 decoration-white/40",
+      tag: "",
+    };
+  }
+
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const due = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000);
+
+  if (diffDays < 0) {
+    return {
+      dateStr,
+      className: "font-semibold text-rose-400",
+      tag: `(Vencido${diffDays < -1 ? ` hace ${Math.abs(diffDays)}d` : " ayer"})`,
+    };
+  }
+  if (diffDays === 0) {
+    return {
+      dateStr,
+      className: "font-semibold text-amber-300",
+      tag: "(Vence hoy)",
+    };
+  }
+  if (diffDays <= 5) {
+    return {
+      dateStr,
+      className: "font-semibold text-amber-300",
+      tag: `(En ${diffDays} ${diffDays === 1 ? "día" : "días"})`,
+    };
+  }
+  return {
+    dateStr,
+    className: "text-white/60",
+    tag: "",
+  };
+}
+
 type Tab = "home" | "card" | "add" | "list" | "rem";
 
 const ICONS: Record<Tab, string> = {
@@ -883,10 +930,24 @@ export default function Home() {
                           {isPaid(r) ? "Pagado" : "Pendiente"}
                         </span>
                       </div>
-                      <div className="mt-1 text-xs text-white/50">
-                        Vence: {serialDate(r.fecha).toISOString().slice(0, 10)} · Estimado: {r.estimado ? money(Math.abs(r.estimado)) : "—"}
-                        {isPaid(r) && r.pagado !== "" && ` · Pagado: ${money(r.pagado)}`}
-                      </div>
+                      {(() => {
+                        const dueInfo = getDueDateInfo(r.fecha, isPaid(r));
+                        return (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/50">
+                            <span className={dueInfo.className}>
+                              Vence: {dueInfo.dateStr} {dueInfo.tag}
+                            </span>
+                            <span>·</span>
+                            <span>Estimado: {r.estimado ? money(Math.abs(r.estimado)) : "—"}</span>
+                            {isPaid(r) && r.pagado !== "" && (
+                              <>
+                                <span>·</span>
+                                <span className="font-medium text-emerald-400">Pagado: {money(r.pagado)}</span>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </button>
                     {open && paying && (
                       <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
