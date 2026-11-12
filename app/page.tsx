@@ -89,21 +89,14 @@ function getDueDateInfo(fechaSerial: number, paid: boolean) {
     return {
       dateStr,
       className: "font-semibold text-rose-400",
-      tag: `(Vencido${diffDays < -1 ? ` hace ${Math.abs(diffDays)}d` : " ayer"})`,
-    };
-  }
-  if (diffDays === 0) {
-    return {
-      dateStr,
-      className: "font-semibold text-amber-300",
-      tag: "(Vence hoy)",
+      tag: `${Math.abs(diffDays)}d`,
     };
   }
   if (diffDays <= 5) {
     return {
       dateStr,
       className: "font-semibold text-amber-300",
-      tag: `(En ${diffDays} ${diffDays === 1 ? "día" : "días"})`,
+      tag: `${diffDays}d`,
     };
   }
   return {
@@ -936,7 +929,7 @@ export default function Home() {
                         return (
                           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/50">
                             <span className={dueInfo.className}>
-                              Vence: {dueInfo.dateStr} {dueInfo.tag}
+                              Vence: {dueInfo.dateStr}{dueInfo.tag ? ` ${dueInfo.tag}` : ""}
                             </span>
                             <span>·</span>
                             {paid ? (
