@@ -308,9 +308,17 @@ export default function Home() {
     [reminders]
   );
 
-  // Meses disponibles en recordatorios (primer mes disponible por defecto)
+  // Meses disponibles en recordatorios (mes actual o más reciente por defecto)
   const remMonths = useMemo(() => [...new Map(reminders.map((r) => [monthKey(r.mes), r.mes])).values()].sort((a, b) => a - b), [reminders]);
-  const activeMonth = remMonth ?? (remMonths[0] ?? null);
+  const defaultRemMonth = useMemo(() => {
+    if (remMonths.length === 0) return null;
+    const now = new Date();
+    const curKey = now.getFullYear() * 12 + now.getMonth();
+    const currentMatch = remMonths.find((m) => monthKey(m) === curKey);
+    if (currentMatch !== undefined) return currentMatch;
+    return remMonths[remMonths.length - 1] ?? remMonths[0];
+  }, [remMonths]);
+  const activeMonth = remMonth ?? defaultRemMonth;
   const monthReminders = reminders.filter((r) => activeMonth !== null && monthKey(r.mes) === monthKey(activeMonth));
 
   const handleNavigateToList = useCallback(
