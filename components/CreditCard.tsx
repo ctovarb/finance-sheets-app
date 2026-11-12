@@ -63,9 +63,14 @@ export default function CreditCardView({
   onAddExpense: () => void;
   onEditRow: (r: Row) => void;
 }) {
-  // Lista de meses disponibles ordenada descendentemente
+  // Lista de meses disponibles ordenada descendentemente (incluye siempre el mes actual)
   const availableMonths = useMemo(() => {
     const map = new Map<number, string>();
+    const now = new Date();
+    const curKey = now.getFullYear() * 12 + now.getMonth();
+    const curLabel = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    map.set(curKey, curLabel);
+
     txs.forEach((t) => map.set(t.monthKey, t.monthLabel));
     return [...map.entries()].sort(([a], [b]) => b - a);
   }, [txs]);

@@ -119,7 +119,10 @@ export default function Home() {
   const [filterConcept, setFilterConcept] = useState<"all" | "Ingresos" | "Gastos">("all");
   const [filterMethod, setFilterMethod] = useState<"all" | string>("all");
   const [remMonth, setRemMonth] = useState<number | null>(null);
-  const [cardMonth, setCardMonth] = useState<number | "all">("all");
+  const [cardMonth, setCardMonth] = useState<number | "all">(() => {
+    const now = new Date();
+    return now.getFullYear() * 12 + now.getMonth();
+  });
   const [paying, setPaying] = useState<{ row: number; amount: string; method: string } | null>(null);
   const [descSearch, setDescSearch] = useState("");
   const [descOpen, setDescOpen] = useState(false);
@@ -319,7 +322,15 @@ export default function Home() {
     return remMonths[remMonths.length - 1] ?? remMonths[0];
   }, [remMonths]);
   const activeMonth = remMonth ?? defaultRemMonth;
-  const monthReminders = reminders.filter((r) => activeMonth !== null && monthKey(r.mes) === monthKey(activeMonth));
+  const monthReminders = useMemo(() => {
+    const list = reminders.filter((r) => activeMonth !== null && monthKey(r.mes) === monthKey(activeMonth));
+    return list.slice().sort((a, b) => {
+      const aPaid = isPaid(a) ? 1 : 0;
+      const bPaid = isPaid(b) ? 1 : 0;
+      if (aPaid !== bPaid) return aPaid - bPaid;
+      return a.fecha - b.fecha;
+    });
+  }, [reminders, activeMonth]);
 
   const handleNavigateToList = useCallback(
     (filters: { monthKey?: number; concept?: "Ingresos" | "Gastos"; method?: string }) => {
