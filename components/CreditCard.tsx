@@ -170,7 +170,7 @@ export default function CreditCardView({
   return (
     <div className="space-y-6">
       {/* Header con estilo gradiente */}
-      <header style={heroStyle} className="rounded-b-[2.5rem] px-6 pb-8 pt-12 shadow-2xl">
+      <header style={heroStyle} className="rounded-b-[2.5rem] md:rounded-3xl md:mt-4 px-6 md:px-8 pb-8 pt-10 md:pt-8 shadow-2xl">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold tracking-tight text-white">Tarjeta de Crédito</h1>
           {/* Selector de Mes */}
@@ -250,9 +250,9 @@ export default function CreditCardView({
         </div>
       </header>
 
-      <div className="space-y-5 px-4">
-        {/* Métricas Principales (3 cajas) */}
-        <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-6 px-4 md:px-0">
+        {/* Métricas Principales (2 cajas) */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           {/* Caja Consumos */}
           <section className="rounded-3xl border border-white/10 bg-[#16162a] p-4 shadow-xl">
             <div className="flex items-center justify-between text-xs text-white/60">
@@ -283,53 +283,55 @@ export default function CreditCardView({
         </div>
 
         {/* Acciones directas de la tarjeta */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <button
             type="button"
             onClick={onAddPayment}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-3 text-xs font-bold text-emerald-300 shadow-lg hover:bg-emerald-500/20 active:scale-95 transition-all"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-3.5 text-xs font-bold text-emerald-300 shadow-lg hover:bg-emerald-500/20 active:scale-95 transition-all"
           >
-            <span>+</span> Registrar Pago
+            <span>+</span> Registrar Abono
           </button>
           <button
             type="button"
             onClick={onAddExpense}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#1f1f38] py-3 text-xs font-bold text-white shadow-lg hover:bg-[#272746] active:scale-95 transition-all"
+            className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#1f1f38] py-3.5 text-xs font-bold text-white shadow-lg hover:bg-[#272746] active:scale-95 transition-all"
           >
             <span>+</span> Nueva Compra
           </button>
         </div>
 
-        {/* Desglose de Gastos por Categoría */}
-        {bySubcategory.length > 0 && (
-          <section className="rounded-3xl border border-white/10 bg-[#16162a] p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-white">Consumos por categoría</h3>
-            <p className="mb-3 text-xs text-white/50">Distribución de compras con la tarjeta</p>
+        {/* Columnas responsivas en Desktop (Desglose + Movimientos) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Desglose de Gastos por Categoría */}
+          {bySubcategory.length > 0 && (
+            <section className="lg:col-span-5 rounded-3xl border border-white/10 bg-[#16162a] p-5 shadow-xl h-fit">
+              <h3 className="text-sm font-semibold text-white">Consumos por categoría</h3>
+              <p className="mb-3 text-xs text-white/50">Distribución de compras con la tarjeta</p>
 
-            <div className="space-y-3">
-              {bySubcategory.slice(0, 5).map(([cat, amt]) => {
-                const pct = totalExpenses > 0 ? (amt / totalExpenses) * 100 : 0;
-                return (
-                  <div key={cat} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-white/80">{cat}</span>
-                      <span className="font-bold text-white">{short(amt)} ({pct.toFixed(0)}%)</span>
+              <div className="space-y-3">
+                {bySubcategory.slice(0, 7).map(([cat, amt]) => {
+                  const pct = totalExpenses > 0 ? (amt / totalExpenses) * 100 : 0;
+                  return (
+                    <div key={cat} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-medium text-white/80">{cat}</span>
+                        <span className="font-bold text-white">{short(amt)} ({pct.toFixed(0)}%)</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#7c4dbc] to-[#f0764a]"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                      <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#7c4dbc] to-[#f0764a]"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
-        {/* Lista Detallada de Movimientos */}
-        <section className="rounded-3xl border border-white/10 bg-[#16162a] p-5 shadow-xl">
+          {/* Lista Detallada de Movimientos */}
+          <section className={`${bySubcategory.length > 0 ? "lg:col-span-7" : "lg:col-span-12"} rounded-3xl border border-white/10 bg-[#16162a] p-5 shadow-xl`}>
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-white">Movimientos de la Tarjeta</h3>
             <span className="text-xs text-white/40">{filtered.length} registros</span>
@@ -388,5 +390,6 @@ export default function CreditCardView({
         </section>
       </div>
     </div>
-  );
+  </div>
+);
 }

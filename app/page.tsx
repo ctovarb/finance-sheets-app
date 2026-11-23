@@ -135,9 +135,9 @@ const lbl = "mb-1.5 block text-xs font-semibold uppercase tracking-wider text-wh
 
 function Header({ title, sub }: { title: string; sub?: string }) {
   return (
-    <header style={heroStyle} className="rounded-b-[2.5rem] px-6 pb-8 pt-12 shadow-2xl">
-      <h1 className="text-3xl font-bold tracking-tight text-white">{title}</h1>
-      {sub && <p className="mt-1 text-sm text-white/70">{sub}</p>}
+    <header style={heroStyle} className="rounded-b-[2.5rem] md:rounded-3xl md:mt-4 px-6 md:px-8 pb-8 pt-10 md:pt-8 shadow-2xl">
+      <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white">{title}</h1>
+      {sub && <p className="mt-1 md:mt-1.5 text-sm md:text-base text-white/70">{sub}</p>}
     </header>
   );
 }
@@ -479,7 +479,7 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-6 text-center text-white">
+      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md md:max-w-lg flex-col items-center justify-center px-6 text-center text-white">
         <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-tr from-[#7c4dbc] via-[#9b6ad8] to-[#f0764a] p-1 shadow-2xl shadow-[#7c4dbc]/50 animate-pulse">
           <div className="flex h-full w-full items-center justify-center rounded-[22px] bg-[#16162a]/90 backdrop-blur-sm">
             <span className="text-4xl font-extrabold tracking-tight text-white">$</span>
@@ -498,7 +498,7 @@ export default function Home() {
 
   if (!authed) {
     return (
-      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 text-white">
+      <main style={heroStyle} className="mx-auto flex min-h-screen w-full max-w-md md:max-w-lg flex-col justify-center px-6 text-white">
         <h1 className="text-4xl font-bold tracking-tight text-white">Finanzas</h1>
         <p className="mt-1 text-sm text-white/70">Tu hoja de 2026, desde el celular</p>
         <form onSubmit={login} className="mt-8 space-y-4 rounded-3xl border border-white/10 bg-[#16162a] p-6 shadow-2xl">
@@ -542,7 +542,67 @@ export default function Home() {
   ];
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-md bg-[#0b0b1f] pb-32 text-white">
+    <main className="mx-auto min-h-screen w-full max-w-md md:max-w-4xl lg:max-w-6xl xl:max-w-7xl bg-[#0b0b1f] pb-28 md:pb-16 text-white px-0 md:px-6">
+      {/* Barra de navegación superior fija en pantallas de escritorio / web */}
+      <header className="hidden md:flex sticky top-0 z-50 items-center justify-between border-b border-white/10 bg-[#0b0b1f]/90 px-6 py-3.5 backdrop-blur-xl mb-4 rounded-b-2xl">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#7c4dbc] via-[#9b6ad8] to-[#f0764a] text-lg font-bold text-white shadow-lg shadow-[#7c4dbc]/30">
+            $
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold tracking-tight text-white">Finanzas</span>
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/70">2026</span>
+            </div>
+            <p className="text-[11px] text-white/50">Panel de Control Web</p>
+          </div>
+        </div>
+
+        {/* Pestañas de escritorio */}
+        <nav className="flex items-center gap-1.5 rounded-2xl border border-white/10 bg-[#16162a]/90 p-1.5 backdrop-blur-md shadow-xl">
+          {nav.map(([t, name]) => (
+            <button
+              key={t}
+              onClick={() => go(t)}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                tab === t
+                  ? "bg-gradient-to-r from-[#7c4dbc] to-[#9b6ad8] text-white shadow-lg shadow-[#7c4dbc]/30"
+                  : "text-white/60 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Icon tab={t} active={tab === t} />
+              <span>{name}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Acciones rápidas (Sincronizar y Salir) */}
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => { load(); loadReminders(); }}
+            title="Recargar datos de Google Sheets"
+            className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#16162a] px-3.5 py-2 text-xs font-medium text-white/80 hover:text-white hover:bg-white/10 active:scale-95 transition-all"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19" />
+            </svg>
+            <span>Sincronizar</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.removeItem("pw");
+              setAuthed(false);
+            }}
+            title="Cerrar sesión"
+            className="flex items-center gap-1.5 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300 hover:bg-rose-500/20 active:scale-95 transition-all"
+          >
+            <span>Salir</span>
+          </button>
+        </div>
+      </header>
+
       {tab === "home" && (
         <Summary
           txs={txs}
@@ -566,9 +626,9 @@ export default function Home() {
       )}
 
       {tab === "add" && (
-        <>
+        <div className="max-w-2xl mx-auto w-full px-4 md:px-0">
           <Header title={editing !== null ? "Editar registro" : "Nuevo registro"} sub={editing !== null ? `Fila ${editing} de la hoja` : "Se sincroniza de inmediato con la hoja 2026"} />
-          <form onSubmit={submit} className="relative mx-4 mt-6 space-y-4 rounded-3xl border border-white/10 bg-[#16162a] p-5 shadow-2xl">
+          <form onSubmit={submit} className="relative mt-6 space-y-4 rounded-3xl border border-white/10 bg-[#16162a] p-5 md:p-8 shadow-2xl">
             <div className="mx-auto -mt-2 mb-3 h-1 w-12 rounded-full bg-white/20" />
             
             {/* Concepto Selector: Gastos / Ingresos */}
@@ -728,7 +788,7 @@ export default function Home() {
             </button>
             {msg && <p className="text-center text-sm font-medium pt-1">{msg}</p>}
           </form>
-        </>
+        </div>
       )}
 
       {tab === "list" && (
@@ -737,9 +797,9 @@ export default function Home() {
             title="Movimientos"
             sub={`${filtered.length} de ${data.rows.length} registros`}
           />
-          <div className="mt-6 space-y-3 px-4">
+          <div className="mt-6 space-y-4 px-4 md:px-0">
             {/* Buscador y selector de mes */}
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
                 <input
                   className={`${field} pl-10 pr-9`}
@@ -777,7 +837,7 @@ export default function Home() {
                 <select
                   value={filterMonth === "all" ? "all" : String(filterMonth)}
                   onChange={(e) => setFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-                  className="h-full rounded-2xl border border-white/10 bg-[#1f1f38] px-3.5 text-xs font-semibold capitalize text-white outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8]"
+                  className="h-full rounded-2xl border border-white/10 bg-[#1f1f38] px-4 py-3 sm:py-0 text-xs font-semibold capitalize text-white outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8]"
                 >
                   <option value="all" className="bg-[#1f1f38]">
                     Todos los meses
@@ -843,7 +903,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="space-y-2.5 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
               {filtered.map((r) => {
                 const v = r.values[VALUE];
                 return (
@@ -899,13 +959,16 @@ export default function Home() {
       {tab === "rem" && (
         <>
           <Header title="Recordatorios" sub={`${monthReminders.filter(isPaid).length} de ${monthReminders.length} pagados`} />
-          <div className="mt-6 space-y-4 px-4">
-            <select className={field} value={activeMonth ?? ""} onChange={(e) => setRemMonth(Number(e.target.value))}>
-              {remMonths.map((m) => <option key={m} value={m} className="bg-[#1f1f38]">{monthLabel(m)}</option>)}
-            </select>
+          <div className="mt-6 space-y-4 px-4 md:px-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white/60">Mes de recordatorios</span>
+              <select className={`${field} sm:w-72`} value={activeMonth ?? ""} onChange={(e) => setRemMonth(Number(e.target.value))}>
+                {remMonths.map((m) => <option key={m} value={m} className="bg-[#1f1f38]">{monthLabel(m)}</option>)}
+              </select>
+            </div>
             {msg && <p className="text-center text-sm font-medium">{msg}</p>}
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {monthReminders.map((r) => {
                 const open = paying?.row === r.row;
                 return (
@@ -972,8 +1035,8 @@ export default function Home() {
         </>
       )}
 
-      {/* Navegación inferior fija */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-md justify-around border-t border-white/10 bg-[#0e0e24]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl">
+      {/* Navegación inferior fija en móviles */}
+      <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-md justify-around border-t border-white/10 bg-[#0e0e24]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-2xl md:hidden">
         {nav.map(([t, name]) => (
           <button key={t} onClick={() => go(t)} className="flex flex-1 flex-col items-center gap-1 py-1 focus:outline-none">
             <div className={`flex h-9 w-9 items-center justify-center rounded-xl transition-all ${tab === t ? "bg-[#7c4dbc]/30 text-white" : "text-white/40 hover:text-white"}`}>
