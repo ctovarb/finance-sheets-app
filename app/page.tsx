@@ -34,6 +34,11 @@ const money = (v: Cell) =>
     ? v.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
     : String(v);
 
+const cop = (n: number) =>
+  n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+const short = (n: number) =>
+  Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : Math.abs(n) >= 1e3 ? `${Math.round(n / 1e3)}k` : String(Math.round(n));
+
 function toValue(f: Form) {
   const n = Math.abs(Number(f.amount.replace(/[^\d.]/g, "")));
   return f.concept === "Gastos" ? -n : n;
@@ -46,7 +51,7 @@ function toCells(f: Form): Cell[] {
   c[MONTH] = monthSerial(Number(f.year), MONTHS.indexOf(f.month));
   c[CONCEPT] = f.concept; c[DESC] = f.desc; c[DETAIL] = f.detail;
   c[VALUE] = toValue(f);
-  c[STATUS] = f.done ? DONE : "";
+  c[STATUS] = DONE;
   c[METHOD] = f.method;
   return c;
 }
@@ -155,14 +160,19 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [search, setSearch] = useState("");
-  const [filterMonth, setFilterMonth] = useState<number | "all">("all");
+  const [filterMonth, setFilterMonth] = useState<number | "all">(() => {
+    const now = new Date();
+    return now.getFullYear() * 12 + now.getMonth();
+  });
   const [filterConcept, setFilterConcept] = useState<"all" | "Ingresos" | "Gastos">("all");
+  const [filterSub, setFilterSub] = useState<"all" | string>("all");
   const [filterMethod, setFilterMethod] = useState<"all" | string>("all");
   const [remMonth, setRemMonth] = useState<number | null>(null);
   const [cardMonth, setCardMonth] = useState<number | "all">(() => {
     const now = new Date();
     return now.getFullYear() * 12 + now.getMonth();
   });
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [paying, setPaying] = useState<{ row: number; amount: string; method: string } | null>(null);
   const [descSearch, setDescSearch] = useState("");
   const [descOpen, setDescOpen] = useState(false);
@@ -278,6 +288,7 @@ export default function Home() {
       setForm({ ...emptyForm(), month: form.month, method: form.method });
       setDescSearch("");
       setDescOpen(false);
+      setIsAddOpen(false);
       setSuccessModal({
         isOpen: true,
         title: wasEditing ? "¡Registro actualizado!" : "¡Registro guardado con éxito!",
@@ -405,10 +416,44 @@ export default function Home() {
     setTab("card");
   }, []);
 
-  const availableMonths = useMemo(
-    () => [...new Map(txs.map((t) => [t.monthKey, t.monthLabel])).entries()].sort(([a], [b]) => b - a),
-    [txs]
-  );
+  const availableMonths = useMemo(() => {
+    const map = new Map<number, string>();
+    const now = new Date();
+    const curKey = now.getFullYear() * 12 + now.getMonth();
+    const curLabel = `${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
+    map.set(curKey, curLabel);
+    txs.forEach((t) => map.set(t.monthKey, t.monthLabel));
+    return [...map.entries()].sort(([a], [b]) => b - a);
+  }, [txs]);
+
+  const availableSubs = useMemo(() => {
+    const set = new Set<string>();
+    params.forEach((p) => {
+      if (p.sub) set.add(p.sub.trim());
+    });
+    data.rows.forEach((r) => {
+      const s = String(r.values[SUB] ?? "").trim() || (subOf.get(String(r.values[DESC])) ?? "");
+      if (s) set.add(s.trim());
+    });
+    return [...set].sort((a, b) => a.localeCompare(b, "es"));
+  }, [params, data.rows, subOf]);
+
+  const openAddModal = useCallback(() => {
+    setEditing(null);
+    const targetKey =
+      cardMonth !== "all"
+        ? cardMonth
+        : filterMonth !== "all"
+        ? filterMonth
+        : null;
+    const m = targetKey !== null ? MONTHS[targetKey % 12] : form.month;
+    const y = targetKey !== null ? String(Math.floor(targetKey / 12)) : form.year;
+    setForm({ ...emptyForm(m, y), month: m, year: y });
+    setDescSearch("");
+    setDescOpen(false);
+    setMsg("");
+    setIsAddOpen(true);
+  }, [cardMonth, filterMonth, form.month, form.year]);
 
   const handleAddCardPayment = useCallback(() => {
     setEditing(null);
@@ -425,7 +470,7 @@ export default function Home() {
     });
     setDescSearch("Pago Tarjeta de Crédito");
     setDescOpen(false);
-    setTab("add");
+    setIsAddOpen(true);
   }, [cardMonth, availableMonths, form.month, form.year]);
 
   const handleAddCardExpense = useCallback(() => {
@@ -442,7 +487,7 @@ export default function Home() {
     });
     setDescSearch("");
     setDescOpen(false);
-    setTab("add");
+    setIsAddOpen(true);
   }, [cardMonth, availableMonths, form.month, form.year]);
 
   const handleEditRowFromCard = useCallback((r: Row) => {
@@ -450,32 +495,65 @@ export default function Home() {
     setForm(fromRow(r.values));
     setDescSearch("");
     setDescOpen(false);
-    setTab("add");
+    setIsAddOpen(true);
   }, []);
 
   const filtered = useMemo(() => {
-    return data.rows
-      .filter((r) => {
-        if (filterMonth !== "all") {
-          if (typeof r.values[MONTH] !== "number") return false;
-          if (monthKey(r.values[MONTH] as number) !== filterMonth) return false;
-        }
-        if (filterConcept !== "all") {
-          if (String(r.values[CONCEPT]) !== filterConcept) return false;
-        }
-        if (filterMethod !== "all") {
-          if (String(r.values[METHOD]) !== filterMethod) return false;
-        }
-        if (search.trim()) {
-          const text = [...r.values.slice(0, 1), monthName(r.values[MONTH]), ...r.values.slice(2)]
-            .join(" ")
-            .toLowerCase();
-          if (!text.includes(search.toLowerCase().trim())) return false;
-        }
-        return true;
-      })
-      .reverse();
-  }, [data.rows, filterMonth, filterConcept, filterMethod, search]);
+    const list = data.rows.filter((r) => {
+      if (filterMonth !== "all") {
+        if (typeof r.values[MONTH] !== "number") return false;
+        if (monthKey(r.values[MONTH] as number) !== filterMonth) return false;
+      }
+      if (filterConcept !== "all") {
+        if (String(r.values[CONCEPT]) !== filterConcept) return false;
+      }
+      if (filterSub !== "all") {
+        const s = String(r.values[SUB] ?? "").trim() || (subOf.get(String(r.values[DESC])) ?? "");
+        if (s.toLowerCase() !== filterSub.toLowerCase()) return false;
+      }
+      if (filterMethod !== "all") {
+        if (String(r.values[METHOD]) !== filterMethod) return false;
+      }
+      if (search.trim()) {
+        const text = [
+          ...r.values.slice(0, 1),
+          monthName(r.values[MONTH]),
+          ...r.values.slice(2),
+          subOf.get(String(r.values[DESC])) || ""
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!text.includes(search.toLowerCase().trim())) return false;
+      }
+      return true;
+    });
+
+    // Ordenar siempre del registro más nuevo al más viejo
+    return list.sort((a, b) => {
+      const monthA = typeof a.values[MONTH] === "number" ? (a.values[MONTH] as number) : 0;
+      const monthB = typeof b.values[MONTH] === "number" ? (b.values[MONTH] as number) : 0;
+      if (monthA !== monthB) {
+        return monthB - monthA;
+      }
+      return b.row - a.row;
+    });
+  }, [data.rows, filterMonth, filterConcept, filterSub, filterMethod, search, subOf]);
+
+  const filteredTotals = useMemo(() => {
+    let gastos = 0;
+    let ingresos = 0;
+    filtered.forEach((r) => {
+      const v = typeof r.values[VALUE] === "number" ? (r.values[VALUE] as number) : 0;
+      const concept = String(r.values[CONCEPT] ?? "");
+      if (concept === "Ingresos" || v > 0) {
+        ingresos += Math.abs(v);
+      } else {
+        gastos += Math.abs(v);
+      }
+    });
+    const saldo = ingresos - gastos;
+    return { gastos, ingresos, saldo, count: filtered.length };
+  }, [filtered]);
 
   if (checkingAuth) {
     return (
@@ -514,23 +592,13 @@ export default function Home() {
   }
 
   const go = (t: Tab) => {
+    if (t === "add") {
+      openAddModal();
+      return;
+    }
     setTab(t); setMsg(""); setPaying(null);
     if (t === "list" || t === "home" || t === "card") load();
     if (t === "rem" || t === "home") loadReminders();
-    if (t === "add") {
-      setEditing(null);
-      const targetKey =
-        cardMonth !== "all"
-          ? cardMonth
-          : filterMonth !== "all"
-          ? filterMonth
-          : null;
-      const m = targetKey !== null ? MONTHS[targetKey % 12] : form.month;
-      const y = targetKey !== null ? String(Math.floor(targetKey / 12)) : form.year;
-      setForm({ ...emptyForm(m, y), month: m, year: y });
-      setDescSearch("");
-      setDescOpen(false);
-    }
   };
 
   const nav: [Tab, string][] = [
@@ -625,169 +693,188 @@ export default function Home() {
         />
       )}
 
-      {tab === "add" && (
-        <div className="max-w-2xl mx-auto w-full px-4 md:px-0">
-          <Header title={editing !== null ? "Editar registro" : "Nuevo registro"} sub={editing !== null ? `Fila ${editing} de la hoja` : "Se sincroniza de inmediato con la hoja 2026"} />
-          <form onSubmit={submit} className="relative mt-6 space-y-4 rounded-3xl border border-white/10 bg-[#16162a] p-5 md:p-8 shadow-2xl">
-            <div className="mx-auto -mt-2 mb-3 h-1 w-12 rounded-full bg-white/20" />
-            
-            {/* Concepto Selector: Gastos / Ingresos */}
-            <div className="flex gap-2 rounded-2xl bg-[#1f1f38] p-1.5 border border-white/5">
-              {CONCEPTS.map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => set("concept", c)}
-                  className={`flex-1 rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
-                    form.concept === c
-                      ? (c === "Gastos" ? "bg-rose-600 text-white shadow-lg" : "bg-emerald-600 text-white shadow-lg")
-                      : "text-white/40 hover:text-white"
-                  }`}
-                >
-                  {c}
-                </button>
-              ))}
+      {/* Modal Popup para Agregar / Editar Registro */}
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150">
+          <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-[#16162a] p-5 md:p-7 shadow-2xl my-auto animate-in zoom-in-95 duration-150">
+            {/* Header del Modal */}
+            <div className="flex items-start justify-between pb-3 border-b border-white/10">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight text-white">
+                  {editing !== null ? "Editar registro" : "Nuevo registro"}
+                </h2>
+                <p className="text-xs text-white/60 mt-0.5">
+                  {editing !== null ? `Fila ${editing} de la hoja` : "Se sincroniza de inmediato con la hoja 2026"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsAddOpen(false); setEditing(null); }}
+                className="rounded-xl bg-white/10 p-2 text-white/60 hover:text-white hover:bg-white/20 transition-all"
+                aria-label="Cerrar modal"
+              >
+                ✕
+              </button>
             </div>
 
-            <label className="block">
-              <span className={lbl}>Valor</span>
-              <input inputMode="numeric" className={`${field} text-2xl font-bold`} placeholder="0" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
-            </label>
-
-            {/* Buscador de descripción */}
-            <div className="space-y-1">
-              <span className={lbl}>Descripción</span>
-              {form.desc && !descOpen ? (
-                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#1f1f38] px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <span className="block truncate text-base font-semibold text-white">{form.desc}</span>
-                    <span className="block truncate text-xs text-white/50">{subOf.get(form.desc) || "Categoría"}</span>
-                  </div>
+            <form onSubmit={submit} className="mt-4 space-y-4">
+              {/* Concepto Selector: Gastos / Ingresos */}
+              <div className="flex gap-2 rounded-2xl bg-[#1f1f38] p-1.5 border border-white/5">
+                {CONCEPTS.map((c) => (
                   <button
                     type="button"
-                    onClick={() => {
-                      setDescOpen(true);
-                      setDescSearch("");
-                    }}
-                    className="ml-3 shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#9b6ad8] hover:bg-white/20 active:scale-95 transition-all"
+                    key={c}
+                    onClick={() => set("concept", c)}
+                    className={`flex-1 rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
+                      form.concept === c
+                        ? (c === "Gastos" ? "bg-rose-600 text-white shadow-lg" : "bg-emerald-600 text-white shadow-lg")
+                        : "text-white/40 hover:text-white"
+                    }`}
                   >
-                    Cambiar ✎
+                    {c}
                   </button>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      autoFocus={descOpen}
-                      placeholder="Buscar descripción (ej. Mercado, Gasolina)..."
-                      className={`${field} pl-10 pr-9`}
-                      value={descSearch}
-                      onChange={(e) => {
-                        setDescSearch(e.target.value);
-                        setDescOpen(true);
-                      }}
-                      onFocus={() => setDescOpen(true)}
-                    />
-                    <svg
-                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    {(descSearch || descOpen) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDescSearch("");
-                          if (form.desc) setDescOpen(false);
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/50 hover:text-white"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
+                ))}
+              </div>
 
-                  {/* Lista desplegable filtrada */}
-                  {descOpen && (
-                    <div className="mt-1.5 max-h-56 overflow-y-auto rounded-2xl border border-white/10 bg-[#16162a] p-1.5 shadow-2xl space-y-1 z-30">
-                      {filteredDescs.map((p) => (
+              <label className="block">
+                <span className={lbl}>Valor</span>
+                <input inputMode="numeric" className={`${field} text-2xl font-bold`} placeholder="0" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
+              </label>
+
+              {/* Buscador de descripción */}
+              <div className="space-y-1">
+                <span className={lbl}>Descripción</span>
+                {form.desc && !descOpen ? (
+                  <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#1f1f38] px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate text-base font-semibold text-white">{form.desc}</span>
+                      <span className="block truncate text-xs text-white/50">{subOf.get(form.desc) || "Categoría"}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDescOpen(true);
+                        setDescSearch("");
+                      }}
+                      className="ml-3 shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#9b6ad8] hover:bg-white/20 active:scale-95 transition-all"
+                    >
+                      Cambiar ✎
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        autoFocus={descOpen}
+                        placeholder="Buscar descripción (ej. Mercado, Gasolina)..."
+                        className={`${field} pl-10 pr-9`}
+                        value={descSearch}
+                        onChange={(e) => {
+                          setDescSearch(e.target.value);
+                          setDescOpen(true);
+                        }}
+                        onFocus={() => setDescOpen(true)}
+                      />
+                      <svg
+                        className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      {(descSearch || descOpen) && (
                         <button
                           type="button"
-                          key={p.desc}
                           onClick={() => {
-                            set("desc", p.desc);
-                            setDescOpen(false);
                             setDescSearch("");
+                            if (form.desc) setDescOpen(false);
                           }}
-                          className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-all flex items-center justify-between ${
-                            form.desc === p.desc
-                              ? "bg-[#7c4dbc] text-white font-semibold"
-                              : "text-white/80 hover:bg-white/10"
-                          }`}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/50 hover:text-white"
                         >
-                          <span className="truncate">{p.desc}</span>
-                          <span className="text-[11px] text-white/40 truncate ml-2 shrink-0">{p.sub}</span>
+                          ✕
                         </button>
-                      ))}
-                      {filteredDescs.length === 0 && (
-                        <p className="py-4 text-center text-xs text-white/40">No hay descripciones coincidentes</p>
                       )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
 
-            <label className="block">
-              <span className={lbl}>Detalles</span>
-              <input className={field} placeholder="Comentario o detalle opcional" value={form.detail} onChange={(e) => set("detail", e.target.value)} />
-            </label>
+                    {/* Lista desplegable filtrada */}
+                    {descOpen && (
+                      <div className="mt-1.5 max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-[#16162a] p-1.5 shadow-2xl space-y-1 z-30">
+                        {filteredDescs.map((p) => (
+                          <button
+                            type="button"
+                            key={p.desc}
+                            onClick={() => {
+                              set("desc", p.desc);
+                              setDescOpen(false);
+                              setDescSearch("");
+                            }}
+                            className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm transition-all flex items-center justify-between ${
+                              form.desc === p.desc
+                                ? "bg-[#7c4dbc] text-white font-semibold"
+                                : "text-white/80 hover:bg-white/10"
+                            }`}
+                          >
+                            <span className="truncate">{p.desc}</span>
+                            <span className="text-[11px] text-white/40 truncate ml-2 shrink-0">{p.sub}</span>
+                          </button>
+                        ))}
+                        {filteredDescs.length === 0 && (
+                          <p className="py-4 text-center text-xs text-white/40">No hay descripciones coincidentes</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
-            <div className="flex gap-3">
-              <label className="block flex-1">
-                <span className={lbl}>Mes al que aplica</span>
-                <select className={field} value={form.month} onChange={(e) => set("month", e.target.value)}>
-                  {MONTHS.map((m) => <option key={m} value={m} className="bg-[#1f1f38] capitalize">{m}</option>)}
+              <label className="block">
+                <span className={lbl}>Detalles</span>
+                <input className={field} placeholder="Comentario o detalle opcional" value={form.detail} onChange={(e) => set("detail", e.target.value)} />
+              </label>
+
+              <div className="flex gap-3">
+                <label className="block flex-1">
+                  <span className={lbl}>Mes al que aplica</span>
+                  <select className={field} value={form.month} onChange={(e) => set("month", e.target.value)}>
+                    {MONTHS.map((m) => <option key={m} value={m} className="bg-[#1f1f38] capitalize">{m}</option>)}
+                  </select>
+                </label>
+                <label className="block w-28">
+                  <span className={lbl}>Año</span>
+                  <input inputMode="numeric" className={field} value={form.year} onChange={(e) => set("year", e.target.value)} />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className={lbl}>Medio de pago</span>
+                <select className={field} value={form.method} onChange={(e) => set("method", e.target.value)}>
+                  {PAYMENT_METHODS.map((m) => <option key={m} value={m} className="bg-[#1f1f38]">{m}</option>)}
                 </select>
               </label>
-              <label className="block w-28">
-                <span className={lbl}>Año</span>
-                <input inputMode="numeric" className={field} value={form.year} onChange={(e) => set("year", e.target.value)} />
-              </label>
-            </div>
 
-            <label className="block">
-              <span className={lbl}>Medio de pago</span>
-              <select className={field} value={form.method} onChange={(e) => set("method", e.target.value)}>
-                {PAYMENT_METHODS.map((m) => <option key={m} value={m} className="bg-[#1f1f38]">{m}</option>)}
-              </select>
-            </label>
-
-            <label className="flex items-center gap-3 pt-2 text-sm text-white/80 cursor-pointer">
-              <input
-                type="checkbox"
-                className="h-5 w-5 rounded-md accent-[#7c4dbc] bg-[#1f1f38] border-white/20"
-                checked={form.done}
-                onChange={(e) => set("done", e.target.checked)}
-              />
-              <span className="font-medium">Estado {DONE} (Completado)</span>
-            </label>
-
-            <button className={primary} disabled={busy}>
-              {busy ? "Guardando..." : editing !== null ? "Actualizar Registro" : "Guardar Registro"}
-            </button>
-            {msg && <p className="text-center text-sm font-medium pt-1">{msg}</p>}
-          </form>
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsAddOpen(false); setEditing(null); }}
+                  className="w-1/3 rounded-2xl border border-white/10 bg-white/5 py-3.5 text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className={`${primary} flex-1`} disabled={busy}>
+                  {busy ? "Guardando..." : editing !== null ? "Actualizar" : "Guardar"}
+                </button>
+              </div>
+              {msg && <p className="text-center text-sm font-medium pt-1 text-rose-400">{msg}</p>}
+            </form>
+          </div>
         </div>
       )}
 
@@ -798,50 +885,52 @@ export default function Home() {
             sub={`${filtered.length} de ${data.rows.length} registros`}
           />
           <div className="mt-6 space-y-4 px-4 md:px-0">
-            {/* Buscador y selector de mes */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <input
-                  className={`${field} pl-10 pr-9`}
-                  placeholder="Buscar movimientos..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                <svg
-                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            {/* Buscador de texto */}
+            <div className="relative">
+              <input
+                className={`${field} pl-10 pr-9`}
+                placeholder="Buscar por detalle, descripción o medio..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <svg
+                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/50 hover:text-white"
                 >
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/50 hover:text-white"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
+                  ✕
+                </button>
+              )}
+            </div>
 
-              {/* Selector de mes compacto */}
-              <div className="relative shrink-0">
+            {/* Cuadrícula de 4 Filtros: Mes, Concepto, Tipo/Subconcepto, Medio de Pago */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {/* Filtro Mes */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
+                  Mes
+                </label>
                 <select
                   value={filterMonth === "all" ? "all" : String(filterMonth)}
                   onChange={(e) => setFilterMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
-                  className="h-full rounded-2xl border border-white/10 bg-[#1f1f38] px-4 py-3 sm:py-0 text-xs font-semibold capitalize text-white outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8]"
+                  className="w-full rounded-xl border border-white/10 bg-[#1f1f38] px-3 py-2 text-xs font-semibold capitalize text-white outline-none focus:border-[#9b6ad8]"
                 >
-                  <option value="all" className="bg-[#1f1f38]">
-                    Todos los meses
-                  </option>
+                  <option value="all" className="bg-[#1f1f38]">Todos los meses</option>
                   {availableMonths.map(([k, label]) => (
                     <option key={k} value={k} className="bg-[#1f1f38] capitalize">
                       {label}
@@ -849,10 +938,64 @@ export default function Home() {
                   ))}
                 </select>
               </div>
+
+              {/* Filtro Concepto (Gasto o Ingreso) */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
+                  Concepto
+                </label>
+                <select
+                  value={filterConcept}
+                  onChange={(e) => setFilterConcept(e.target.value as "all" | "Ingresos" | "Gastos")}
+                  className="w-full rounded-xl border border-white/10 bg-[#1f1f38] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-[#9b6ad8]"
+                >
+                  <option value="all" className="bg-[#1f1f38]">Gastos e Ingresos</option>
+                  <option value="Gastos" className="bg-[#1f1f38]">Solo Gastos</option>
+                  <option value="Ingresos" className="bg-[#1f1f38]">Solo Ingresos</option>
+                </select>
+              </div>
+
+              {/* Filtro Tipo / Subconcepto */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
+                  Tipo / Subconcepto
+                </label>
+                <select
+                  value={filterSub}
+                  onChange={(e) => setFilterSub(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-[#1f1f38] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-[#9b6ad8]"
+                >
+                  <option value="all" className="bg-[#1f1f38]">Todos los tipos</option>
+                  {availableSubs.map((s) => (
+                    <option key={s} value={s} className="bg-[#1f1f38]">
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filtro Medio de Pago */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-white/50 mb-1">
+                  Medio de Pago
+                </label>
+                <select
+                  value={filterMethod}
+                  onChange={(e) => setFilterMethod(e.target.value)}
+                  className="w-full rounded-xl border border-white/10 bg-[#1f1f38] px-3 py-2 text-xs font-semibold text-white outline-none focus:border-[#9b6ad8]"
+                >
+                  <option value="all" className="bg-[#1f1f38]">Todos los medios</option>
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m} value={m} className="bg-[#1f1f38]">
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Chips de filtros activos */}
-            {(filterMonth !== "all" || filterConcept !== "all" || filterMethod !== "all") && (
+            {(filterMonth !== "all" || filterConcept !== "all" || filterSub !== "all" || filterMethod !== "all" || search.trim() !== "") && (
               <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                 <span className="text-[11px] font-medium text-white/40 mr-1">Filtros:</span>
                 {filterMonth !== "all" && (
@@ -879,13 +1022,33 @@ export default function Home() {
                     <span className="opacity-70">✕</span>
                   </button>
                 )}
+                {filterSub !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setFilterSub("all")}
+                    className="flex items-center gap-1 rounded-full border border-purple-500/40 bg-purple-500/20 px-2.5 py-1 text-xs font-medium text-purple-200"
+                  >
+                    <span>{filterSub}</span>
+                    <span className="opacity-70">✕</span>
+                  </button>
+                )}
                 {filterMethod !== "all" && (
                   <button
                     type="button"
                     onClick={() => setFilterMethod("all")}
                     className="flex items-center gap-1 rounded-full border border-[#f0764a]/40 bg-[#f0764a]/20 px-2.5 py-1 text-xs font-medium text-[#f0764a]"
                   >
-                    <span>{filterMethod.includes("Tarjeta") ? "Tarjeta" : "Cuenta"}</span>
+                    <span>{filterMethod}</span>
+                    <span className="opacity-70">✕</span>
+                  </button>
+                )}
+                {search.trim() !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-white"
+                  >
+                    <span>&ldquo;{search}&rdquo;</span>
                     <span className="opacity-70">✕</span>
                   </button>
                 )}
@@ -894,7 +1057,9 @@ export default function Home() {
                   onClick={() => {
                     setFilterMonth("all");
                     setFilterConcept("all");
+                    setFilterSub("all");
                     setFilterMethod("all");
+                    setSearch("");
                   }}
                   className="ml-auto text-xs text-white/40 underline hover:text-white"
                 >
@@ -903,13 +1068,62 @@ export default function Home() {
               </div>
             )}
 
+            {/* Resumen / Totales del filtro actual */}
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#1c1c38] to-[#121226] p-4 shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-[#9b6ad8] animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-white/70">
+                    {filterSub !== "all" ? `Total ${filterSub}` : filterConcept !== "all" ? `Total ${filterConcept}` : "Saldo de la Búsqueda"}
+                  </span>
+                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-white/60">
+                    {filteredTotals.count} {filteredTotals.count === 1 ? "registro" : "registros"}
+                  </span>
+                </div>
+                {filterMonth !== "all" && (
+                  <span className="text-xs font-semibold text-purple-300 capitalize">
+                    {availableMonths.find(([k]) => k === filterMonth)?.[1]}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                <div className="rounded-xl bg-[#16162a]/80 border border-white/5 p-3">
+                  <span className="block text-[11px] font-medium text-white/50">Gastos</span>
+                  <span className="text-base sm:text-lg font-bold text-rose-400">
+                    {cop(filteredTotals.gastos)}
+                  </span>
+                </div>
+
+                <div className="rounded-xl bg-[#16162a]/80 border border-white/5 p-3">
+                  <span className="block text-[11px] font-medium text-white/50">Ingresos</span>
+                  <span className="text-base sm:text-lg font-bold text-emerald-400">
+                    {cop(filteredTotals.ingresos)}
+                  </span>
+                </div>
+
+                <div className="col-span-2 sm:col-span-1 rounded-xl bg-[#16162a]/80 border border-white/5 p-3">
+                  <span className="block text-[11px] font-medium text-white/50">
+                    {filteredTotals.ingresos > 0 && filteredTotals.gastos > 0
+                      ? "Saldo Neto"
+                      : filteredTotals.ingresos > 0
+                      ? "Total Ingresos"
+                      : "Total Gastos"}
+                  </span>
+                  <span className={`text-base sm:text-lg font-bold ${filteredTotals.saldo >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    {cop(filteredTotals.saldo)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
               {filtered.map((r) => {
                 const v = r.values[VALUE];
                 return (
                   <div key={r.row} className="flex items-stretch gap-2">
                     <button
-                      onClick={() => { setEditing(r.row); setForm(fromRow(r.values)); setTab("add"); setMsg(""); }}
+                      onClick={() => { setEditing(r.row); setForm(fromRow(r.values)); setIsAddOpen(true); setMsg(""); }}
                       className="relative flex min-w-0 flex-1 items-center gap-3.5 rounded-2xl border border-white/10 bg-[#16162a] p-3.5 text-left shadow-lg active:scale-[0.99] transition-all"
                     >
                       {(() => {
