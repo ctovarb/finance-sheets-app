@@ -295,7 +295,7 @@ export default function Home() {
         desc: `${savedLabel} (${form.month} ${form.year})`,
         amount: savedAmount,
       });
-      await load();
+      await Promise.all([load(), loadReminders()]);
     } catch (err) {
       setMsg("❌ " + (err as Error).message);
     } finally {
@@ -310,7 +310,7 @@ export default function Home() {
     setMsg("");
     try {
       await api(`/api/rows/${r.row}`, { method: "DELETE" });
-      await load();
+      await Promise.all([load(), loadReminders()]);
     } catch (err) {
       window.alert("❌ " + (err as Error).message);
     } finally {
@@ -1279,11 +1279,10 @@ export default function Home() {
               type="button"
               onClick={() => {
                 setSuccessModal(null);
-                setTab("home");
               }}
               className="w-full rounded-2xl bg-gradient-to-r from-[#7c4dbc] to-[#9b6ad8] py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#7c4dbc]/30 active:scale-[0.98] transition-all"
             >
-              Aceptar y volver al Resumen
+              Aceptar
             </button>
           </div>
         </div>
