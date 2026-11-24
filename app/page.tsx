@@ -705,24 +705,28 @@ export default function Home() {
 
       {/* Modal Popup para Agregar / Editar Registro */}
       {isAddOpen && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-4 overflow-hidden animate-in fade-in duration-150">
-          <div className="relative flex flex-col w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] rounded-t-[2.5rem] sm:rounded-3xl border border-white/10 bg-[#16162a] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200">
-            {/* Header del Modal (Fijo en el tope) */}
-            <div className="shrink-0 px-5 pt-4 pb-3 sm:px-6 sm:pt-5 border-b border-white/10 bg-[#16162a]">
-              <div className="sm:hidden mx-auto -mt-1 mb-2.5 h-1 w-12 rounded-full bg-white/20" />
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/85 backdrop-blur-md p-0 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="relative flex flex-col w-full max-w-lg max-h-[92dvh] sm:max-h-[88vh] rounded-t-[2.5rem] sm:rounded-3xl border border-white/[0.12] bg-gradient-to-b from-[#18182f] via-[#141427] to-[#0f0f1d] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] overflow-hidden animate-in slide-in-from-bottom-8 sm:zoom-in-95 duration-200">
+            {/* Ambient subtle glow */}
+            <div className="pointer-events-none absolute top-0 inset-x-0 h-28 bg-gradient-to-b from-[#7c4dbc]/20 to-transparent" />
+
+            {/* Header del Modal */}
+            <div className="relative shrink-0 px-6 pt-4 pb-3 sm:pt-5 border-b border-white/[0.08] bg-transparent">
+              <div className="sm:hidden mx-auto -mt-1 mb-2.5 h-1.5 w-12 rounded-full bg-white/20" />
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-bold tracking-tight text-white">
+                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
                     {editing !== null ? "Editar registro" : "Nuevo registro"}
                   </h2>
-                  <p className="text-xs text-white/60 mt-0.5">
-                    {editing !== null ? `Fila ${editing} de la hoja` : "Se sincroniza de inmediato con la hoja 2026"}
+                  <p className="flex items-center text-xs text-white/60 mt-0.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse" />
+                    {editing !== null ? `Fila ${editing} de la hoja de cálculo` : "Sincronización en tiempo real con 2026"}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { setIsAddOpen(false); setEditing(null); }}
-                  className="rounded-xl bg-white/10 p-2 text-white/60 hover:text-white hover:bg-white/20 transition-all"
+                  className="rounded-full bg-white/10 hover:bg-white/20 h-9 w-9 flex items-center justify-center text-white/70 hover:text-white transition-all active:scale-95"
                   aria-label="Cerrar modal"
                 >
                   ✕
@@ -730,40 +734,74 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Formulario con cuerpo scrollable independiente y botones fijos abajo */}
+            {/* Formulario con cuerpo scrollable independiente */}
             <form onSubmit={submit} className="flex flex-col flex-1 min-h-0">
               <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 space-y-4">
-                {/* Concepto Selector: Gastos / Ingresos */}
-                <div className="flex gap-2 rounded-2xl bg-[#1f1f38] p-1.5 border border-white/5">
-                  {CONCEPTS.map((c) => (
-                    <button
-                      type="button"
-                      key={c}
-                      onClick={() => set("concept", c)}
-                      className={`flex-1 rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition-all ${
-                        form.concept === c
-                          ? (c === "Gastos" ? "bg-rose-600 text-white shadow-lg" : "bg-emerald-600 text-white shadow-lg")
-                          : "text-white/40 hover:text-white"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
+                {/* Concepto Selector: Gastos / Ingresos estilo segmented control */}
+                <div className="flex gap-1.5 rounded-2xl bg-black/40 p-1.5 border border-white/5 shadow-inner">
+                  {CONCEPTS.map((c) => {
+                    const isExpense = c === "Gastos";
+                    const active = form.concept === c;
+                    return (
+                      <button
+                        type="button"
+                        key={c}
+                        onClick={() => set("concept", c)}
+                        className={`flex-1 rounded-xl py-2.5 text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                          active
+                            ? isExpense
+                              ? "bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-[0_4px_16px_rgba(244,63,94,0.35)]"
+                              : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-[0_4px_16px_rgba(16,185,129,0.35)]"
+                            : "text-white/40 hover:text-white/70"
+                        }`}
+                      >
+                        <span className="text-sm font-extrabold">{isExpense ? "↓" : "↑"}</span>
+                        <span>{c}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <label className="block">
-                  <span className={lbl}>Valor</span>
-                  <input inputMode="numeric" className={`${field} text-2xl font-bold`} placeholder="0" value={form.amount} onChange={(e) => set("amount", e.target.value)} />
-                </label>
+                {/* Monto Hero Card */}
+                <div className="relative overflow-hidden rounded-2xl bg-black/35 border border-white/10 p-4 focus-within:border-[#9b6ad8] focus-within:ring-2 focus-within:ring-[#9b6ad8]/30 transition-all shadow-inner">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Monto</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      form.concept === "Gastos"
+                        ? "bg-rose-500/15 text-rose-300 border border-rose-500/30"
+                        : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                    }`}>
+                      {form.concept === "Gastos" ? "Salida" : "Entrada"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center gap-1.5 pt-1">
+                    <span className="text-2xl sm:text-3xl font-black text-white/30 select-none">$</span>
+                    <input
+                      inputMode="numeric"
+                      autoFocus
+                      className="w-full text-center text-4xl sm:text-5xl font-black tracking-tight text-white bg-transparent outline-none placeholder-white/20"
+                      placeholder="0"
+                      value={form.amount}
+                      onChange={(e) => set("amount", e.target.value)}
+                    />
+                  </div>
+                </div>
 
-                {/* Buscador de descripción */}
-                <div className="space-y-1">
-                  <span className={lbl}>Descripción</span>
+                {/* Buscador de descripción / Categoría */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Categoría / Concepto</span>
                   {form.desc && !descOpen ? (
-                    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-[#1f1f38] px-4 py-3">
-                      <div className="min-w-0 flex-1">
-                        <span className="block truncate text-base font-semibold text-white">{form.desc}</span>
-                        <span className="block truncate text-xs text-white/50">{subOf.get(form.desc) || "Categoría"}</span>
+                    <div className="flex items-center justify-between rounded-2xl border border-[#9b6ad8]/40 bg-[#7c4dbc]/15 p-3.5 shadow-sm transition-all">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-[#7c4dbc] to-[#9b6ad8] text-white font-black text-base shadow-md">
+                          {form.desc.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-bold text-white">{form.desc}</span>
+                          <span className="inline-block rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-purple-200 mt-0.5">
+                            {subOf.get(form.desc) || "General"}
+                          </span>
+                        </div>
                       </div>
                       <button
                         type="button"
@@ -771,7 +809,7 @@ export default function Home() {
                           setDescOpen(true);
                           setDescSearch("");
                         }}
-                        className="ml-3 shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#9b6ad8] hover:bg-white/20 active:scale-95 transition-all"
+                        className="ml-2 shrink-0 rounded-xl bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-semibold text-white transition-all active:scale-95"
                       >
                         Cambiar ✎
                       </button>
@@ -782,8 +820,8 @@ export default function Home() {
                         <input
                           type="text"
                           autoFocus={descOpen}
-                          placeholder="Buscar descripción (ej. Mercado, Gasolina)..."
-                          className={`${field} pl-10 pr-9`}
+                          placeholder="Buscar concepto (ej. Mercado, Gasolina)..."
+                          className="w-full rounded-2xl border border-white/10 bg-black/35 pl-10 pr-9 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8] transition-all"
                           value={descSearch}
                           onChange={(e) => {
                             setDescSearch(e.target.value);
@@ -793,8 +831,8 @@ export default function Home() {
                         />
                         <svg
                           className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
-                          width="18"
-                          height="18"
+                          width="16"
+                          height="16"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
@@ -821,7 +859,7 @@ export default function Home() {
 
                       {/* Lista desplegable filtrada */}
                       {descOpen && (
-                        <div className="mt-1.5 max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-[#16162a] p-1.5 shadow-2xl space-y-1 z-30">
+                        <div className="mt-1.5 max-h-48 overflow-y-auto rounded-2xl border border-white/10 bg-[#1a1a33] p-1.5 shadow-2xl space-y-1 z-30">
                           {filteredDescs.map((p) => (
                             <button
                               type="button"
@@ -838,7 +876,7 @@ export default function Home() {
                               }`}
                             >
                               <span className="truncate">{p.desc}</span>
-                              <span className="text-[11px] text-white/40 truncate ml-2 shrink-0">{p.sub}</span>
+                              <span className="text-[10px] font-semibold text-white/50 bg-white/5 px-2 py-0.5 rounded-md truncate ml-2 shrink-0">{p.sub}</span>
                             </button>
                           ))}
                           {filteredDescs.length === 0 && (
@@ -850,31 +888,80 @@ export default function Home() {
                   )}
                 </div>
 
-                <label className="block">
-                  <span className={lbl}>Detalles</span>
-                  <input className={field} placeholder="Comentario o detalle opcional" value={form.detail} onChange={(e) => set("detail", e.target.value)} />
-                </label>
-
-                <div className="flex gap-3">
-                  <label className="block flex-1">
-                    <span className={lbl}>Mes al que aplica</span>
-                    <select className={field} value={form.month} onChange={(e) => set("month", e.target.value)}>
-                      {MONTHS.map((m) => <option key={m} value={m} className="bg-[#1f1f38] capitalize">{m}</option>)}
-                    </select>
-                  </label>
-                  <label className="block w-28">
-                    <span className={lbl}>Año</span>
-                    <input inputMode="numeric" className={field} value={form.year} onChange={(e) => set("year", e.target.value)} />
-                  </label>
+                {/* Detalles / Comentario */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Detalle o Nota (Opcional)</span>
+                  <div className="relative">
+                    <input
+                      className="w-full rounded-2xl border border-white/10 bg-black/35 pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8] transition-all"
+                      placeholder="Ej. Almuerzo familiar, Netflix, compra..."
+                      value={form.detail}
+                      onChange={(e) => set("detail", e.target.value)}
+                    />
+                    <svg
+                      className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/40"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </div>
                 </div>
 
-                {/* Medio de pago: Bullets con iconos en vez de lista desplegable */}
-                <div className="space-y-1.5">
+                {/* Período: Mes y Año en fila armonizada */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Mes al que aplica</span>
+                    <div className="relative">
+                      <select
+                        className="w-full appearance-none rounded-2xl border border-white/10 bg-black/35 pl-3.5 pr-8 py-3 text-sm font-semibold capitalize text-white outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8] transition-all"
+                        value={form.month}
+                        onChange={(e) => set("month", e.target.value)}
+                      >
+                        {MONTHS.map((m) => (
+                          <option key={m} value={m} className="bg-[#18182f] capitalize">
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <svg
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/40"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Año</span>
+                    <input
+                      inputMode="numeric"
+                      className="w-full text-center rounded-2xl border border-white/10 bg-black/35 py-3 text-sm font-semibold text-white outline-none focus:border-[#9b6ad8] focus:ring-1 focus:ring-[#9b6ad8] transition-all"
+                      value={form.year}
+                      onChange={(e) => set("year", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Medio de pago: Tarjetas de selección armónicas con bullets e iconos */}
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className={lbl}>Medio de pago</span>
-                    <span className="text-xs font-semibold text-white/80">
-                      {form.method}
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/50">Medio de pago</span>
+                    <span className="text-xs font-semibold text-white/80">{form.method}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Medio de pago">
@@ -889,62 +976,61 @@ export default function Home() {
                           aria-checked={selected}
                           title={m}
                           onClick={() => set("method", m)}
-                          className={`group relative flex items-center justify-between gap-3 rounded-2xl border px-4 py-3.5 transition-all ${
+                          className={`group relative flex flex-col items-center justify-center gap-2 rounded-2xl p-3.5 sm:p-4 border transition-all active:scale-[0.98] ${
                             selected
-                              ? "border-[#9b6ad8] bg-gradient-to-r from-[#7c4dbc]/30 to-[#9b6ad8]/20 shadow-lg shadow-[#7c4dbc]/25 ring-1 ring-[#9b6ad8]/60"
-                              : "border-white/10 bg-[#1f1f38]/80 hover:border-white/20 hover:bg-[#1f1f38] opacity-65 hover:opacity-100"
+                              ? isCard
+                                ? "border-[#f0764a]/80 bg-gradient-to-b from-[#f0764a]/20 to-[#f0764a]/5 shadow-[0_8px_24px_-6px_rgba(240,118,74,0.35)] ring-1 ring-[#f0764a]/50"
+                                : "border-emerald-500/80 bg-gradient-to-b from-emerald-500/20 to-emerald-500/5 shadow-[0_8px_24px_-6px_rgba(16,185,129,0.35)] ring-1 ring-emerald-500/50"
+                              : "border-white/10 bg-black/35 hover:border-white/20 hover:bg-white/[0.04] opacity-70 hover:opacity-100"
                           }`}
                         >
-                          {/* Bullet (Radio circle) */}
-                          <span
-                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
+                          {/* Bullet (Radio circle) en la esquina superior derecha */}
+                          <div className="absolute top-2.5 right-2.5">
+                            <span
+                              className={`flex h-4 w-4 items-center justify-center rounded-full border transition-all ${
+                                selected
+                                  ? isCard
+                                    ? "border-[#f0764a] bg-[#f0764a]"
+                                    : "border-emerald-500 bg-emerald-500"
+                                  : "border-white/30 bg-transparent group-hover:border-white/60"
+                              }`}
+                            >
+                              {selected && <span className="h-1.5 w-1.5 rounded-full bg-white shadow-sm" />}
+                            </span>
+                          </div>
+
+                          {/* Badge con ícono estilizado */}
+                          <div
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-all ${
                               selected
-                                ? "border-[#9b6ad8] bg-[#9b6ad8]"
-                                : "border-white/40 bg-transparent group-hover:border-white/70"
+                                ? isCard
+                                  ? "bg-[#f0764a]/20 text-[#f0764a] shadow-inner shadow-[#f0764a]/30"
+                                  : "bg-emerald-500/20 text-emerald-400 shadow-inner shadow-emerald-500/30"
+                                : "bg-white/5 text-white/50 group-hover:text-white"
                             }`}
                           >
-                            {selected && <span className="h-2 w-2 rounded-full bg-white shadow-sm" />}
-                          </span>
-
-                          {/* Íconos grandes sin texto: Tarjeta de crédito o Bolsa con signo pesos */}
-                          <div className="flex flex-1 items-center justify-center pr-1">
                             {isCard ? (
-                              <svg
-                                className={`h-8 w-8 transition-transform group-active:scale-95 ${
-                                  selected ? "text-[#f0764a] drop-shadow-[0_2px_8px_rgba(240,118,74,0.4)]" : "text-white/60 group-hover:text-white"
-                                }`}
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
+                              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="2" y="5" width="20" height="14" rx="3" />
                                 <line x1="2" y1="10" x2="22" y2="10" />
                                 <line x1="6" y1="15" x2="9" y2="15" strokeWidth="2.5" />
-                                <line x1="12" y1="15" x2="14" y2="15" strokeWidth="2.5" />
+                                <line x1="13" y1="15" x2="15" y2="15" strokeWidth="2.5" />
                               </svg>
                             ) : (
-                              <svg
-                                className={`h-8 w-8 transition-transform group-active:scale-95 ${
-                                  selected ? "text-emerald-400 drop-shadow-[0_2px_8px_rgba(52,211,153,0.4)]" : "text-white/60 group-hover:text-white"
-                                }`}
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
+                              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M9 4h6" />
                                 <path d="M10 2h4" />
                                 <path d="M8 4c-1.5 1.5-3 4-3 9 0 5 3.5 8 7 8s7-3 7-8c0-5-1.5-7.5-3-9H8z" />
-                                <path d="M12 7.5v8" strokeWidth="1.8" />
-                                <path d="M14 9.5c-.5-.7-1.2-1-2-1s-1.8.4-1.8 1.4c0 1.2 1.3 1.5 2.2 1.8 1.2.4 2.2.8 2.2 2 0 1.2-1 1.8-2.4 1.8-1 0-1.9-.4-2.4-1.1" strokeWidth="1.6" />
+                                <path d="M12 8v7" strokeWidth="1.8" />
+                                <path d="M14 9.8c-.4-.6-1-.8-1.8-.8s-1.4.3-1.4 1c0 .8.8 1.1 1.7 1.3 1.1.3 1.8.6 1.8 1.5 0 .9-.8 1.4-1.9 1.4-1 0-1.6-.4-2-.9" strokeWidth="1.6" />
                               </svg>
                             )}
                           </div>
+
+                          {/* Etiqueta del medio */}
+                          <span className={`text-[11px] sm:text-xs font-bold transition-colors ${selected ? "text-white" : "text-white/60"}`}>
+                            {isCard ? "Tarjeta de Crédito" : "Cuenta de Ahorros"}
+                          </span>
                         </button>
                       );
                     })}
@@ -952,21 +1038,34 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Footer Fijo con Botones de Acción (Siempre visible en pantalla) */}
-              <div className="shrink-0 border-t border-white/10 bg-[#16162a]/95 px-5 py-3.5 sm:px-6 backdrop-blur-md pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {/* Footer Fijo con Botones de Acción (Siempre visible) */}
+              <div className="shrink-0 border-t border-white/10 bg-[#111122]/95 px-5 py-3.5 sm:px-6 backdrop-blur-xl pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
                     onClick={() => { setIsAddOpen(false); setEditing(null); }}
-                    className="w-1/3 rounded-2xl border border-white/10 bg-white/5 py-3.5 text-sm font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+                    className="w-1/3 py-3.5 rounded-2xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white font-semibold text-sm transition-all active:scale-[0.98]"
                   >
                     Cancelar
                   </button>
-                  <button type="submit" className={`${primary} flex-1`} disabled={busy}>
-                    {busy ? "Guardando..." : editing !== null ? "Actualizar" : "Guardar"}
+                  <button
+                    type="submit"
+                    className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-[#7c4dbc] via-[#9b6ad8] to-[#f0764a] hover:opacity-95 text-white font-bold text-sm shadow-xl shadow-[#7c4dbc]/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+                    disabled={busy}
+                  >
+                    {busy ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Guardando...
+                      </span>
+                    ) : editing !== null ? (
+                      <span>Actualizar Registro ✓</span>
+                    ) : (
+                      <span>Guardar Registro ✓</span>
+                    )}
                   </button>
                 </div>
-                {msg && <p className="text-center text-sm font-medium pt-2 text-rose-400">{msg}</p>}
+                {msg && <p className="text-center text-xs font-semibold pt-2 text-rose-400">{msg}</p>}
               </div>
             </form>
           </div>
